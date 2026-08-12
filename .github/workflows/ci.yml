@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard - skip until Laravel is bootstrapped
+        id: guard
+        run: |
+          if [ -f composer.json ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "composer.json が無いため CI をスキップ（設計フェーズ）。docs/05_dev_harness.md 参照。"
+          fi
+
+      - name: Setup PHP
+        if: steps.guard.outputs.ready == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          tools: composer
+          coverage: none
+
+      - name: Cache Composer
+        if: steps.guard.outputs.ready == 'true'
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - name: Install dependencies
+        if: steps.guard.outputs.ready == 'true'
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare env
+        if: steps.guard.outputs.ready == 'true'
+        run: |
+          cp .env.example .env || true
+          php artisan key:generate || true
+
+      - name: Lint (Pint + PHPStan)
+        if: steps.guard.outputs.ready == 'true'
+        run: make lint
+
+      - name: Test (Pest/PHPUnit)
+        if: steps.guard.outputs.ready == 'true'
+        run: make test
