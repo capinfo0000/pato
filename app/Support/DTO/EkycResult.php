@@ -13,6 +13,5 @@ final readonly class EkycResult
         public bool $verified,
         public bool $isAdult,
         public string $providerRef,
-    ) {
-    }
+    ) {}
 }

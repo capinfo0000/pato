@@ -10,7 +10,7 @@ namespace App\Support\Contracts;
 interface PushSender
 {
     /**
-     * @param array<string, scalar> $data 付随データ（PIIを含めない）
+     * @param  array<string, scalar>  $data  付随データ（PIIを含めない）
      */
     public function send(int $userId, string $title, string $body, array $data = []): void;
 }

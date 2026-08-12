@@ -15,7 +15,7 @@ final class Call
     private CallStatus $status;
 
     /**
-     * @param list<int> $participantCastIds 成立時に確定する参加キャスト
+     * @param  list<int>  $participantCastIds  成立時に確定する参加キャスト
      */
     public function __construct(
         public readonly int $id,
@@ -23,7 +23,7 @@ final class Call
         public readonly int $holdPoints,
         private array $participantCastIds = [],
         CallStatus $status = CallStatus::Draft,
-        private readonly CallStateMachine $sm = new CallStateMachine(),
+        private readonly CallStateMachine $sm = new CallStateMachine,
     ) {
         $this->status = $status;
     }

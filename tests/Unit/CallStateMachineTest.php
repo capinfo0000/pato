@@ -14,7 +14,7 @@ final class CallStateMachineTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->sm = new CallStateMachine();
+        $this->sm = new CallStateMachine;
     }
 
     public function test_happy_path_transitions_are_allowed(): void

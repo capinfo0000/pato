@@ -13,7 +13,7 @@ final class TipDistributorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->d = new TipDistributor();
+        $this->d = new TipDistributor;
     }
 
     public function test_even_split(): void

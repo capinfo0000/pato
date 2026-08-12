@@ -19,7 +19,7 @@ enum TransactionType: string
     case Release = 'release';         // キャンセル/不成立でホールド解放（ホールド解消）
     case Tip = 'tip';                 // おひねり消費（- 確定）
     case Expire = 'expire';           // 有効期限切れ失効（- 確定）
-    case PayoutDebit = 'payout_debit';// キャスト精算の引き落とし（- 確定, キャスト側ウォレット）
+    case PayoutDebit = 'payout_debit'; // キャスト精算の引き落とし（- 確定, キャスト側ウォレット）
 
     /**
      * 「確定残高（settled）」への符号。ホールドは確定残高を動かさないので 0。

@@ -7,22 +7,23 @@ namespace Tests\Unit;
 use App\Application\Call\CallBillingService;
 use App\Domain\Call\Call;
 use App\Domain\Call\Enums\CallStatus;
+use App\Domain\Point\Support\PointTransaction;
+use App\Domain\Point\Support\Wallet;
 use App\Domain\Pricing\DTO\CallLineItem;
 use App\Domain\Pricing\Enums\CastClass;
 use App\Domain\Pricing\PricingCalculator;
-use App\Domain\Point\Support\PointTransaction;
-use App\Domain\Point\Support\Wallet;
 use PHPUnit\Framework\TestCase;
 
 final class CallBillingServiceTest extends TestCase
 {
     private CallBillingService $service;
+
     private PricingCalculator $calc;
 
     protected function setUp(): void
     {
-        $this->service = new CallBillingService();
-        $this->calc = new PricingCalculator();
+        $this->service = new CallBillingService;
+        $this->calc = new PricingCalculator;
     }
 
     public function test_full_flow_create_match_complete_pays_out(): void
@@ -49,7 +50,7 @@ final class CallBillingServiceTest extends TestCase
         $call->start();
 
         // 完了→確定消費＋報酬計上
-        $castWallet = new Wallet();
+        $castWallet = new Wallet;
         $payouts = $this->service->complete($call, $guest, $quote, [501 => $castWallet]);
 
         $this->assertSame(CallStatus::Completed, $call->status());
@@ -107,8 +108,8 @@ final class CallBillingServiceTest extends TestCase
         $call->match([501, 502]);
         $call->start();
 
-        $castA = new Wallet();
-        $castB = new Wallet();
+        $castA = new Wallet;
+        $castB = new Wallet;
         $dist = $this->service->applyTip($call, $guest, [501 => $castA, 502 => $castB], 5000);
 
         $this->assertSame([501 => 2500, 502 => 2500], $dist);

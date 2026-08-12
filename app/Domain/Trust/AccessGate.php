@@ -21,8 +21,7 @@ final class AccessGate
         private readonly bool $identityVerified,
         private readonly bool $isAdult,
         private readonly bool $areaServiceable,
-    ) {
-    }
+    ) {}
 
     public function canCreateCall(): bool
     {

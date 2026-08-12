@@ -13,7 +13,7 @@ final class ContentFilterTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->filter = new ContentFilter();
+        $this->filter = new ContentFilter;
     }
 
     public function test_clean_message_passes(): void

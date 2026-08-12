@@ -16,9 +16,7 @@ namespace App\Domain\Point\Support;
 final class PointBalance
 {
     /** @param list<PointTransaction> $transactions */
-    public function __construct(private readonly array $transactions)
-    {
-    }
+    public function __construct(private readonly array $transactions) {}
 
     /** 確定残高（実際に消費・保有しているポイント） */
     public function settled(): int

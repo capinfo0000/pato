@@ -14,7 +14,7 @@ final class FakeAdaptersTest extends TestCase
 {
     public function test_payment_is_idempotent(): void
     {
-        $gw = new FakePaymentGateway();
+        $gw = new FakePaymentGateway;
         $ref1 = $gw->charge('tok_visa', 12000, 'key-1');
         $ref2 = $gw->charge('tok_visa', 12000, 'key-1'); // 同じ冪等キー
 
@@ -24,7 +24,7 @@ final class FakeAdaptersTest extends TestCase
 
     public function test_payment_failure_throws(): void
     {
-        $gw = new FakePaymentGateway();
+        $gw = new FakePaymentGateway;
         $gw->shouldFail = true;
 
         $this->expectException(\RuntimeException::class);
@@ -33,7 +33,7 @@ final class FakeAdaptersTest extends TestCase
 
     public function test_ekyc_stub_returns_configured_result(): void
     {
-        $ekyc = new FakeEkycProvider();
+        $ekyc = new FakeEkycProvider;
         $ekyc->stub('sess-1', new EkycResult(verified: true, isAdult: true, providerRef: 'p-1'));
 
         $result = $ekyc->verify('sess-1');
@@ -46,7 +46,7 @@ final class FakeAdaptersTest extends TestCase
 
     public function test_push_records_sent_messages(): void
     {
-        $push = new FakePushSender();
+        $push = new FakePushSender;
         $push->send(100, '成立しました', 'キャストが向かっています');
 
         $this->assertSame(1, $push->countFor(100));

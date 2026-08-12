@@ -13,8 +13,8 @@ interface PaymentGateway
     /**
      * ポイント購入の課金。成功時に PSP の参照IDを返す。
      *
-     * @param  string $paymentMethodToken PSP 発行のトークン（カード番号は扱わない）
-     * @param  int    $amountYen          請求額（円・整数）
+     * @param  string  $paymentMethodToken  PSP 発行のトークン（カード番号は扱わない）
+     * @param  int  $amountYen  請求額（円・整数）
      * @return string 決済参照ID
      *
      * @throws \RuntimeException 決済失敗

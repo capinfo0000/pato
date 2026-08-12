@@ -7,18 +7,19 @@ namespace Tests\Unit;
 use App\Domain\Pricing\DTO\CallLineItem;
 use App\Domain\Pricing\Enums\CastClass;
 use App\Domain\Pricing\PricingCalculator;
+use App\Domain\Pricing\Support\AreaClassPrice;
 use PHPUnit\Framework\TestCase;
 
 final class PricingCalculatorTest extends TestCase
 {
     private PricingCalculator $calc;
 
-    /** @var array<string, \App\Domain\Pricing\Support\AreaClassPrice> */
+    /** @var array<string, AreaClassPrice> */
     private array $table;
 
     protected function setUp(): void
     {
-        $this->calc = new PricingCalculator();
+        $this->calc = new PricingCalculator;
         $this->table = PricingCalculator::okayamaDefaultTable();
     }
 

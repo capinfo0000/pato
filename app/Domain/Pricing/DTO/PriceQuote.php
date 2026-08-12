@@ -16,8 +16,7 @@ final readonly class PriceQuote
         public int $guestHoldPoints,
         public int $castPayoutPoints,
         public int $takePoints,
-    ) {
-    }
+    ) {}
 
     /** ゲスト支払の円換算（1P=¥1.2） */
     public function guestYen(): int

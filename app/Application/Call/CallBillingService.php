@@ -6,9 +6,11 @@ namespace App\Application\Call;
 
 use App\Domain\Call\Call;
 use App\Domain\Call\Support\TipDistributor;
-use App\Domain\Pricing\DTO\PriceQuote;
+use App\Domain\Point\Enums\PointKind;
+use App\Domain\Point\Enums\TransactionType;
 use App\Domain\Point\Support\PointTransaction;
 use App\Domain\Point\Support\Wallet;
+use App\Domain\Pricing\DTO\PriceQuote;
 
 /**
  * 呼び出しの与信・確定・解放・おひねりを、ウォレット台帳と接続するアプリケーションサービス。
@@ -18,9 +20,8 @@ use App\Domain\Point\Support\Wallet;
 final class CallBillingService
 {
     public function __construct(
-        private readonly TipDistributor $tipDistributor = new TipDistributor(),
-    ) {
-    }
+        private readonly TipDistributor $tipDistributor = new TipDistributor,
+    ) {}
 
     /**
      * 呼び出し作成: 利用可能残高を確認し、見積額を与信（ホールド）して open にする。
@@ -40,8 +41,8 @@ final class CallBillingService
     /**
      * 完了: ホールドを確定消費し、参加キャストへ報酬を配分計上する。
      *
-     * @param  array<int, Wallet> $castWallets castProfileId => キャストのウォレット
-     * @return array<int, int>    castProfileId => 計上した報酬ポイント
+     * @param  array<int, Wallet>  $castWallets  castProfileId => キャストのウォレット
+     * @return array<int, int> castProfileId => 計上した報酬ポイント
      */
     public function complete(Call $call, Wallet $guestWallet, PriceQuote $quote, array $castWallets): array
     {
@@ -55,8 +56,8 @@ final class CallBillingService
         foreach ($payouts as $castId => $points) {
             $wallet = $castWallets[$castId] ?? throw new \InvalidArgumentException("キャストのウォレット未指定: {$castId}");
             $wallet->append(new PointTransaction(
-                \App\Domain\Point\Enums\TransactionType::Grant,
-                \App\Domain\Point\Enums\PointKind::Paid,
+                TransactionType::Grant,
+                PointKind::Paid,
                 $points,
                 $call->id,
             ));
@@ -77,9 +78,9 @@ final class CallBillingService
     /**
      * おひねり: 総額を配分し、ゲストから消費、各キャストへ付与する。
      *
-     * @param  array<int, Wallet>   $castWallets castProfileId => ウォレット
-     * @param  array<int, int>|null $explicit    指定配分（任意）
-     * @return array<int, int>      castProfileId => 付与ポイント
+     * @param  array<int, Wallet>  $castWallets  castProfileId => ウォレット
+     * @param  array<int, int>|null  $explicit  指定配分（任意）
+     * @return array<int, int> castProfileId => 付与ポイント
      */
     public function applyTip(Call $call, Wallet $guestWallet, array $castWallets, int $totalPoints, ?array $explicit = null): array
     {
@@ -96,8 +97,8 @@ final class CallBillingService
             }
             $wallet = $castWallets[$castId] ?? throw new \InvalidArgumentException("キャストのウォレット未指定: {$castId}");
             $wallet->append(new PointTransaction(
-                \App\Domain\Point\Enums\TransactionType::Grant,
-                \App\Domain\Point\Enums\PointKind::Paid,
+                TransactionType::Grant,
+                PointKind::Paid,
                 $points,
                 $call->id,
             ));
@@ -109,7 +110,7 @@ final class CallBillingService
     /**
      * キャスト報酬を参加人数で均等配分（端数は先頭へ寄せる）。
      *
-     * @param  list<int>       $castIds
+     * @param  list<int>  $castIds
      * @return array<int, int>
      */
     private function splitEvenly(int $total, array $castIds): array

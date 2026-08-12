@@ -13,9 +13,9 @@ namespace App\Domain\Call\Support;
 final class TipDistributor
 {
     /**
-     * @param  list<int>            $castProfileIds 参加キャスト
-     * @param  array<int,int>|null  $explicit       castProfileId => points（指定配分, 任意）
-     * @return array<int,int>       castProfileId => 配分ポイント
+     * @param  list<int>  $castProfileIds  参加キャスト
+     * @param  array<int,int>|null  $explicit  castProfileId => points（指定配分, 任意）
+     * @return array<int,int> castProfileId => 配分ポイント
      */
     public function distribute(int $totalPoints, array $castProfileIds, ?array $explicit = null): array
     {

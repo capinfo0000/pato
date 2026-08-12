@@ -23,8 +23,8 @@ final class PricingCalculator
     private const YEN_PER_PAID_POINT_X10 = 12; // 1P = ¥1.2 → ×10 表現で 12
 
     /**
-     * @param array<string, AreaClassPrice> $priceTable class value => 料金設定
-     * @param list<CallLineItem>             $items
+     * @param  array<string, AreaClassPrice>  $priceTable  class value => 料金設定
+     * @param  list<CallLineItem>  $items
      */
     public function quote(array $priceTable, array $items, int $durationMin, bool $isNight = false): PriceQuote
     {

@@ -105,11 +105,28 @@ Laravel 本体の前に、金額クリティカルな**純粋ドメイン層**�
   ポイント台帳 / call・明細・参加 / payout / messaging / trust
 - `database/seeders/OkayamaMasterSeeder` … 岡山エリア・クラス・エリア別料金・ポイント商品
 
+### Laravel 本体（bootstrap 済み）
+
+Laravel 11 を導入済み。sqlite で即動く。
+
+```bash
+composer install
+cp .env.example .env && php artisan key:generate
+touch database/database.sqlite
+php artisan migrate --seed        # 8マイグレーション + 岡山マスタ
+vendor/bin/phpunit                # Unit 39 + Feature 3 = 42 緑
+```
+
+- Eloquent Model: `app/Models/`（User / PointWallet / PointTransaction / Area /
+  ClassTier / AreaClassPrice）
+- リポジトリ: `app/Infrastructure/Persistence/`（Price 表→Calculator、ウォレット台帳）
+  と契約 `app/Domain/*/Contracts/`
+- Feature テスト: `tests/Feature/`（DBの料金→見積、台帳の永続化と残高再構成、エリア限定）
+
 ## 8. まだ無いもの（TODO）
 
-- [ ] Laravel 本体（HTTP/認証/Blade/ルーティング/PWA）の bootstrap
-- [ ] Eloquent Model と、ドメインコアを配線する Service/Action の Laravel 統合
-- [ ] Repository（ウォレット/コールの永続化）と DBトランザクション境界
+- [ ] HTTP 層（Controller / FormRequest / ルーティング / Policy）と Blade 画面
+- [ ] 認証（Breeze/Fortify）と3ロール、本人確認ゲートのミドルウェア
+- [ ] Call/Payout の Eloquent Model と Service の DBトランザクション統合
 - [ ] 実 Adapter（Stripe 等 PaymentGateway / eKYC / Web Push）
-- [ ] `.env.example` の確定（DB/Redis/PSP/eKYC のキー）
 - [ ] PWA（manifest / service worker）、ランキング/ゲーミフィケーションの実装
