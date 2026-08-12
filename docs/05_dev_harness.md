@@ -93,16 +93,23 @@ Laravel 本体の前に、金額クリティカルな**純粋ドメイン層**�
 - `app/Domain/Pricing/` … エリア別・クラス別料金と報酬/取り分（`PricingCalculator`、岡山既定表）
 - `app/Domain/Call/`   … 状態遷移（`CallStateMachine`、許可遷移のみ通す）
 - `app/Domain/Trust/`  … 入口ゲート（`AccessGate` = 年齢/本人確認/エリア）
-- テスト: `tests/Unit/`（21 ケース。台帳の hold→capture/release、料金の実額、遷移、ゲート）
+- `app/Domain/Call/Support/TipDistributor` … おひねり配分（指定/均等・端数寄せ）
+- `app/Domain/Messaging/ContentFilter` … NG検知（連絡先交換/外部誘導/密室/現金/性的）
+- `app/Application/Call/CallBillingService` … 作成→与信→完了(精算)/解放/おひねりの整合点
+- `app/Support/Contracts` + `Adapters/Fake` … 決済/eKYC/Push の抽象と Fake 実装
+- テスト: `tests/Unit/`（39 ケース。台帳、料金実額、状態遷移、ゲート、全体フロー、
+  おひねり、NG検知、Fake の冪等性）
 
-これらは Laravel 導入後、そのまま Service/Action から利用し、Model・Migration と接続する。
+### DB マイグレーション / seeder（Laravel 形式で作成済み・要 bootstrap 後に実行）
+- `database/migrations/2026_08_12_0000{01..08}_*` … users / profiles・eKYC / 料金マスタ /
+  ポイント台帳 / call・明細・参加 / payout / messaging / trust
+- `database/seeders/OkayamaMasterSeeder` … 岡山エリア・クラス・エリア別料金・ポイント商品
 
 ## 8. まだ無いもの（TODO）
 
-- [ ] Laravel 本体（HTTP/DB/認証/Blade/PWA）の bootstrap
-- [ ] Migration（`docs/02_er_diagram.md` のテーブル）と Eloquent Model
-- [ ] Service/Action（CreateCall→Match→Complete、Point の hold/capture、Payout 計上）
+- [ ] Laravel 本体（HTTP/認証/Blade/ルーティング/PWA）の bootstrap
+- [ ] Eloquent Model と、ドメインコアを配線する Service/Action の Laravel 統合
+- [ ] Repository（ウォレット/コールの永続化）と DBトランザクション境界
+- [ ] 実 Adapter（Stripe 等 PaymentGateway / eKYC / Web Push）
 - [ ] `.env.example` の確定（DB/Redis/PSP/eKYC のキー）
-- [ ] Fake アダプタ実装（PaymentGateway / EkycProvider / PushSender）
-- [ ] seeders（岡山エリア・クラス・ポイント商品）
-- [ ] PWA（manifest / service worker）
+- [ ] PWA（manifest / service worker）、ランキング/ゲーミフィケーションの実装
