@@ -268,6 +268,103 @@ erDiagram
     }
 ```
 
+## 3b. 探索・ゲーミフィケーション（実アプリ準拠 / 段階導入）
+
+```mermaid
+erDiagram
+    CAST_PROFILES ||--o{ CAST_TAGS : tagged
+    CAST_PROFILES ||--|| CAST_KPIS : summarized
+    CAST_PROFILES ||--o{ FAN_POINTS : earns
+    CAST_PROFILES ||--o{ BADGE_GRANTS : receives
+    USERS ||--o{ BADGE_GRANTS : "sends (guest)"
+    BADGES ||--o{ BADGE_GRANTS : type
+    CAST_PROFILES ||--o{ AWARDS : titled
+    USERS ||--o{ COUPON_GRANTS : holds
+    COUPONS ||--o{ COUPON_GRANTS : issued
+    USERS ||--o{ REFERRALS : "inviter/invitee"
+    RANKINGS }o--|| AREAS : scoped
+
+    CAST_TAGS {
+      bigint id PK
+      bigint cast_profile_id FK
+      string category "style|face|type|hair|career|play|skill"
+      string value
+    }
+    CAST_KPIS {
+      bigint id PK
+      bigint cast_profile_id FK
+      decimal extend_rate "延長率"
+      decimal repeat_rate "サービスリピート率"
+      decimal remeet_rate "また会いたい率"
+      int fan_points_total
+      timestamp recalculated_at
+    }
+    FAN_POINTS {
+      bigint id PK
+      bigint cast_profile_id FK
+      bigint call_id FK "nullable"
+      int points
+      string reason
+      timestamp created_at
+    }
+    BADGES {
+      bigint id PK
+      string code "healing|sparkle|humor|diva ..."
+      string name
+    }
+    BADGE_GRANTS {
+      bigint id PK
+      bigint badge_id FK
+      bigint from_user_id FK "guest"
+      bigint cast_profile_id FK
+      bigint call_id FK "nullable"
+      timestamp created_at
+    }
+    AWARDS {
+      bigint id PK
+      bigint cast_profile_id FK
+      string event_code "cinderella_race|tenka ..."
+      string title "合流時間部門Sランク 等"
+      string season "2025 等"
+    }
+    COUPONS {
+      bigint id PK
+      string code
+      enum type "discount|bonus_points"
+      int value
+      date valid_until
+    }
+    COUPON_GRANTS {
+      bigint id PK
+      bigint coupon_id FK
+      bigint user_id FK
+      enum status "granted|used|expired"
+      bigint call_id FK "nullable"
+    }
+    REFERRALS {
+      bigint id PK
+      bigint inviter_user_id FK
+      bigint invitee_user_id FK "nullable(未成立)"
+      string invite_code
+      enum status "sent|registered|rewarded"
+    }
+    RANKINGS {
+      bigint id PK
+      enum subject "guest|cast"
+      enum period "yesterday|last_week|last_month|this_month|half|year|all"
+      bigint area_id FK "nullable(全国)"
+      string category "総合 等"
+      bigint ref_id "user_id or cast_profile_id"
+      int rank
+      int score
+      date computed_on
+    }
+```
+
+- ランキングは集計結果テーブル（日次バッチで算出）。リアルタイムは Redis で補助。
+- ファンポイント/KPI はレビュー・延長・リピート等のイベントから再計算（Job）。
+- MVPは CAST_KPIS の表示から。ランキング/称号/大会は供給が育ってから段階導入。
+
 ## 4. 次フェーズで追加予定
 
 - コパト用 `copato_bookings`（1対1・日程調整）／`tsubuyaki`（つぶやき）
