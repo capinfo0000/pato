@@ -105,5 +105,6 @@ make fresh     # DBリセット + seed
 | `01_architecture_mvc.md` | MVC・レイヤー・ディレクトリ設計 |
 | `02_er_diagram.md` | ER図（Mermaid）とテーブル定義 |
 | `03_decision_log.md` | 意思決定ログ（調査サマリ＝いわゆる「チャットログ」） |
-| `04_legal_compliance.md` | 法務チェックリスト（風営法/職安法/資金決済法） |
+| `04_legal_compliance.md` | 法務チェックリスト（出会い系/風営法/職安法/資金決済法） |
 | `05_dev_harness.md` | 開発ハーネス（テスト/CI/フック）の使い方 |
+| `06_pricing_model.md` | 料金・テイクレート・キャスト報酬モデル（seedの元） |

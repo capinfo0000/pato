@@ -89,7 +89,10 @@ erDiagram
       bigint id PK
       bigint area_id FK
       bigint class_tier_id FK
-      int points_per_30min "エリア×クラスの基本料金"
+      int points_per_30min "エリア×クラスの基本料金(ゲスト)"
+      int take_rate_bp "運営取り分(千分率) 既定4000=40%"
+      int nomination_surcharge_bp "指名加算 既定2000"
+      int night_surcharge_bp "深夜加算 既定2000"
       date effective_from
     }
 

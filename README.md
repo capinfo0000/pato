@@ -22,6 +22,7 @@
 | [docs/03_decision_log.md](./docs/03_decision_log.md) | 意思決定ログ / 調査サマリ |
 | [docs/04_legal_compliance.md](./docs/04_legal_compliance.md) | 法務チェックリスト |
 | [docs/05_dev_harness.md](./docs/05_dev_harness.md) | 開発ハーネス（テスト/CI/フック） |
+| [docs/06_pricing_model.md](./docs/06_pricing_model.md) | 料金・テイクレート・キャスト報酬モデル |
 
 ## セットアップ（bootstrap 後）
 
