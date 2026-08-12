@@ -47,7 +47,7 @@ erDiagram
       string email UK
       string phone UK
       string password_hash
-      enum role "guest|cast|admin"
+      enum role "guest|cast|admin|system"
       enum status "active|suspended|withdrawn"
       timestamp created_at
     }
@@ -66,6 +66,11 @@ erDiagram
       bigint class_tier_id FK
       enum screening_status "applied|photo_review|interview|approved|rejected"
       boolean is_active
+      enum availability "now|today|offline"
+      boolean in_session "合流中(対応中)"
+      string bio "一言"
+      int age
+      bigint home_area_id FK
     }
 
     CAST_SCREENINGS {
@@ -191,7 +196,11 @@ erDiagram
 
     THREADS {
       bigint id PK
-      bigint call_id FK
+      bigint call_id FK "nullable(コンシェルジュ/個別スレッド)"
+      enum kind "call|direct|concierge"
+      boolean is_favorite
+      boolean is_hidden
+      timestamp last_message_at
       timestamp created_at
     }
 
@@ -347,6 +356,15 @@ erDiagram
       bigint invitee_user_id FK "nullable(未成立)"
       string invite_code
       enum status "sent|registered|rewarded"
+    }
+    GIFTS {
+      bigint id PK
+      bigint from_user_id FK "guest"
+      bigint cast_profile_id FK
+      string gift_code "称賛/ポイントギフト種別"
+      int points "ポイントギフトの場合"
+      boolean is_batch "まとめてギフトの一部"
+      timestamp created_at
     }
     RANKINGS {
       bigint id PK
