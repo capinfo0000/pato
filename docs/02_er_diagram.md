@@ -20,6 +20,8 @@ erDiagram
     POINT_PRODUCTS ||--o{ POINT_TRANSACTIONS : purchased_via
 
     AREAS ||--o{ CALLS : located_in
+    AREAS ||--o{ AREA_CLASS_PRICES : prices
+    CLASS_TIERS ||--o{ AREA_CLASS_PRICES : priced_by
     VENUES }o--|| AREAS : in
     USERS ||--o{ CALLS : "creates (guest)"
     CALLS }o--o| VENUES : at
@@ -78,10 +80,17 @@ erDiagram
 
     CLASS_TIERS {
       bigint id PK
-      string code "standard|premium|vip"
+      string code "premium|vip|royal_vip"
       string name
-      int base_points_per_30min
       int night_surcharge_bp "深夜加算(千分率など)"
+    }
+
+    AREA_CLASS_PRICES {
+      bigint id PK
+      bigint area_id FK
+      bigint class_tier_id FK
+      int points_per_30min "エリア×クラスの基本料金"
+      date effective_from
     }
 
     IDENTITY_VERIFICATIONS {
@@ -145,6 +154,9 @@ erDiagram
       int headcount "募集人数"
       int hold_points "与信ポイント"
       enum status "draft|open|matched|in_progress|completed|canceled|expired"
+      boolean is_mix "クラス混在許可"
+      bigint nominated_cast_profile_id FK "nullable(優先マッチング/指名)"
+      int priority_surcharge_points "指名追加分"
       text note
       timestamp created_at
     }
@@ -230,9 +242,32 @@ erDiagram
 
 ---
 
-## 3. 次フェーズで追加予定
+## 3. 料金・課金の補足
 
-- コパト用 `copato_bookings`（1対1・日程調整）
-- ブロック `blocks`
-- 通知 `notifications`（配信履歴）
+- **料金はエリア×クラス**で `AREA_CLASS_PRICES` に持つ（pato も地方ほど安い）。呼び出し作成時の
+  ホールド額はこのマスタ×時間×人数（＋指名/深夜加算）で算出。岡山は「地方」水準で seed。
+- **指名/優先マッチング**は `CALLS.nominated_cast_profile_id` ＋ `priority_surcharge_points`。
+- **ミックス**は `CALLS.is_mix`。成立した参加者の実クラスで確定計算。
+- **課金モード**（自動/事前）と**サブスク（パス）**は下記 `PASSES` / ポイント台帳で表現。
+
+```mermaid
+erDiagram
+    USERS ||--o{ PASSES : subscribes
+    PASSES {
+      bigint id PK
+      bigint user_id FK
+      string code "boost_pass 等"
+      enum status "active|canceled|expired"
+      date current_period_end
+      boolean auto_renew
+      int price_yen
+      timestamp created_at
+    }
+```
+
+## 4. 次フェーズで追加予定
+
+- コパト用 `copato_bookings`（1対1・日程調整）／`tsubuyaki`（つぶやき）
+- お気に入り `favorites`（ファミリー）／ブロック `blocks`
+- 通知 `notifications`（配信履歴）／SOS通報 `sos_events`
 - おひねりの独立テーブル化（現状は participant.tip_points に集約）
