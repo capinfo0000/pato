@@ -84,10 +84,25 @@ Web セッションで毎回テスト環境を整えたい場合、`.claude/sett
 
 ---
 
-## 7. まだ無いもの（TODO）
+## 7. 実装済みのドメインコア（フレームワーク非依存）
 
-- [ ] Laravel 本体（bootstrap 未実施）
+Laravel 本体の前に、金額クリティカルな**純粋ドメイン層**を先行実装済み。composer + PHPUnit で
+すぐ動く（`composer install` → `vendor/bin/phpunit`）。
+
+- `app/Domain/Point/`  … ポイント台帳（`PointBalance` = settled/hold/available 算出、`PointTransaction`）
+- `app/Domain/Pricing/` … エリア別・クラス別料金と報酬/取り分（`PricingCalculator`、岡山既定表）
+- `app/Domain/Call/`   … 状態遷移（`CallStateMachine`、許可遷移のみ通す）
+- `app/Domain/Trust/`  … 入口ゲート（`AccessGate` = 年齢/本人確認/エリア）
+- テスト: `tests/Unit/`（21 ケース。台帳の hold→capture/release、料金の実額、遷移、ゲート）
+
+これらは Laravel 導入後、そのまま Service/Action から利用し、Model・Migration と接続する。
+
+## 8. まだ無いもの（TODO）
+
+- [ ] Laravel 本体（HTTP/DB/認証/Blade/PWA）の bootstrap
+- [ ] Migration（`docs/02_er_diagram.md` のテーブル）と Eloquent Model
+- [ ] Service/Action（CreateCall→Match→Complete、Point の hold/capture、Payout 計上）
 - [ ] `.env.example` の確定（DB/Redis/PSP/eKYC のキー）
-- [ ] Fake アダプタ実装
+- [ ] Fake アダプタ実装（PaymentGateway / EkycProvider / PushSender）
 - [ ] seeders（岡山エリア・クラス・ポイント商品）
 - [ ] PWA（manifest / service worker）
