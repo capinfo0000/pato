@@ -10,7 +10,6 @@ use Database\Seeders\OkayamaMasterSeeder;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -151,15 +150,15 @@ final class WebSecurityTest extends TestCase
         // カード番号を保持するカラムが存在しないこと（PCI DSS のスコープを最小化する前提）
         $forbidden = ['card_number', 'card_no', 'pan', 'cvv', 'cvc', 'card_expiry'];
 
-        foreach (DB::select(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        ) as $table) {
-            $columns = Schema::getColumnListing($table->name);
+        // ドライバに依存しない方法で全テーブルを見る（本番は MySQL、開発は sqlite）
+        foreach (Schema::getTables() as $table) {
+            $name = $table['name'];
+            $columns = Schema::getColumnListing($name);
             foreach ($forbidden as $needle) {
                 $this->assertNotContains(
                     $needle,
                     $columns,
-                    "テーブル {$table->name} にカード情報らしきカラム {$needle} がある",
+                    "テーブル {$name} にカード情報らしきカラム {$needle} がある",
                 );
             }
         }
