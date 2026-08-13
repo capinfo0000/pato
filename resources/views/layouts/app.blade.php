@@ -102,6 +102,17 @@
             </nav>
         @endif
     @endauth
+    <footer style="max-width:520px;margin:0 auto;padding:20px 16px 8px;text-align:center;
+                   color:var(--muted);font-size:11px;line-height:1.9">
+        <a href="{{ route('legal.terms') }}">利用規約</a> ·
+        <a href="{{ route('legal.privacy') }}">プライバシーポリシー</a> ·
+        <a href="{{ route('legal.commerce') }}">特定商取引法に基づく表示</a>
+        @if (config('pato.internet_dating_registration'))
+            <div>インターネット異性紹介事業届出済み 登録番号：{{ config('pato.internet_dating_registration') }}</div>
+        @endif
+        <div>{{ config('pato.min_age') }}歳未満の方はご利用いただけません</div>
+    </footer>
+
     <script>
         // Service Worker 登録（PWA: インストール可能化とオフラインシェル）
         if ('serviceWorker' in navigator) {

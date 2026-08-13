@@ -15,6 +15,7 @@ use App\Http\Controllers\Cast\CastDashboardController;
 use App\Http\Controllers\Cast\PayoutController as CastPayoutController;
 use App\Http\Controllers\Cast\ScreeningApplicationController;
 use App\Http\Controllers\CastDirectoryController;
+use App\Http\Controllers\LegalController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PointController;
 use App\Http\Controllers\RankingController;
@@ -38,6 +39,11 @@ Route::get('/', function () {
 
 // PWA のオフラインシェル（Service Worker が事前キャッシュする）
 Route::view('/offline', 'offline')->name('offline');
+
+// 法定表示（未ログインでも閲覧できること）
+Route::get('/terms', [LegalController::class, 'terms'])->name('legal.terms');
+Route::get('/privacy', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/commerce', [LegalController::class, 'commerce'])->name('legal.commerce');
 
 // 認証・会員登録
 Route::middleware('guest')->group(function () {

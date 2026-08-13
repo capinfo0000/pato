@@ -108,3 +108,4 @@ make fresh     # DBリセット + seed
 | `04_legal_compliance.md` | 法務チェックリスト（出会い系/風営法/職安法/資金決済法） |
 | `05_dev_harness.md` | 開発ハーネス（テスト/CI/フック）の使い方 |
 | `06_pricing_model.md` | 料金・テイクレート・キャスト報酬モデル（seedの元） |
+| `07_release_gate.md` | リリースゲート（届出手続き・弁護士レビュー・自動チェック） |
