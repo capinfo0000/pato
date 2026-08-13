@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
 use App\Http\Controllers\Admin\ScreeningController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\Cast\CastDashboardController;
+use App\Http\Controllers\Cast\PayoutController as CastPayoutController;
 use App\Http\Controllers\Cast\ScreeningApplicationController;
 use App\Http\Controllers\CastDirectoryController;
 use App\Http\Controllers\MessageController;
@@ -70,6 +72,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/availability', [CastDashboardController::class, 'availability'])->name('availability');
         Route::get('/apply', [ScreeningApplicationController::class, 'show'])->name('apply.show');
         Route::post('/apply', [ScreeningApplicationController::class, 'store'])->name('apply.store');
+        Route::get('/payouts', [CastPayoutController::class, 'index'])->name('payouts');
+        Route::post('/payouts/request', [CastPayoutController::class, 'request'])->name('payouts.request');
     });
 
     // 管理（審査）
@@ -79,5 +83,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/screenings/{castProfile}/advance', [ScreeningController::class, 'advance'])->name('screenings.advance');
         Route::post('/screenings/{castProfile}/approve', [ScreeningController::class, 'approve'])->name('screenings.approve');
         Route::post('/screenings/{castProfile}/reject', [ScreeningController::class, 'reject'])->name('screenings.reject');
+        Route::get('/payouts', [AdminPayoutController::class, 'index'])->name('payouts.index');
+        Route::post('/payouts/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('payouts.approve');
+        Route::post('/payouts/{payout}/paid', [AdminPayoutController::class, 'markPaid'])->name('payouts.paid');
+        Route::post('/payouts/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('payouts.reject');
     });
 });

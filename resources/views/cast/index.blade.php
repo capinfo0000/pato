@@ -7,7 +7,10 @@
         <p class="sub">参加は任意です。応じたい募集にだけ参加表明してください。</p>
 
         <div class="row"><span class="k">クラス</span><span class="v">{{ $cast->classTier?->name }}</span></div>
-        <div class="row"><span class="k">受取ポイント</span><span class="v">{{ number_format($earned) }}P</span></div>
+        <a class="row" href="{{ route('cast.payouts') }}">
+            <span class="k">受取ポイント</span>
+            <span class="v">{{ number_format($earned) }}P ›</span>
+        </a>
 
         <form method="POST" action="{{ route('cast.availability') }}">
             @csrf
