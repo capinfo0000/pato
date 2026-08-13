@@ -123,10 +123,27 @@ vendor/bin/phpunit                # Unit 39 + Feature 3 = 42 緑
   と契約 `app/Domain/*/Contracts/`
 - Feature テスト: `tests/Feature/`（DBの料金→見積、台帳の永続化と残高再構成、エリア限定）
 
+### 動かす（呼ぶフロー）
+
+```bash
+php artisan migrate:fresh --seed   # 岡山マスタ + デモデータ
+php artisan serve                  # http://127.0.0.1:8000
+# ログイン: guest@example.com / password
+#  → ホーム(今すぐ呼ぶ/今日会えるキャスト) → 条件入力 → 確認(見積+初回注意喚起) → 与信して成立待ち
+```
+
+実装済みの画面/機能:
+- 認証（最小のメール/パスワード・`app/Http/Controllers/Auth/LoginController`）
+- 呼ぶ導線（`CallController`: home/create/confirm/store/show、`CreateCallRequest`）
+- 作成ユースケース `app/Application/Call/CreateCallService`（ゲート→見積→残高確認→DB TXで
+  Call(open)生成・明細・与信ホールド）。DI は `AppServiceProvider` で契約→Eloquent 実装に束縛。
+- Feature テスト `tests/Feature/CreateCallFlowTest`（作成で与信/残高不足で拒否/未確認で拒否/
+  確認は非永続/未ログインは弾く）
+
 ## 8. まだ無いもの（TODO）
 
-- [ ] HTTP 層（Controller / FormRequest / ルーティング / Policy）と Blade 画面
-- [ ] 認証（Breeze/Fortify）と3ロール、本人確認ゲートのミドルウェア
+- [ ] 会員登録・eKYC 連携、キャスト側の審査/在席切替、Policy による認可の網羅
+- [ ] 成立(Match)→開始→完了→精算の HTTP 導線（今は作成/与信まで）
 - [ ] Call/Payout の Eloquent Model と Service の DBトランザクション統合
 - [ ] 実 Adapter（Stripe 等 PaymentGateway / eKYC / Web Push）
 - [ ] PWA（manifest / service worker）、ランキング/ゲーミフィケーションの実装

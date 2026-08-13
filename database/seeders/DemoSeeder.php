@@ -1,0 +1,83 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Seeders;
+
+use App\Models\Area;
+use App\Models\CastProfile;
+use App\Models\ClassTier;
+use App\Models\IdentityVerification;
+use App\Models\PointTransaction;
+use App\Models\PointWallet;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+
+/**
+ * ローカル/デモ用データ。岡山マスタ(OkayamaMasterSeeder)投入後に実行する。
+ * 本人確認済み・ポイント保有のゲストと、在席キャストを作る。
+ */
+final class DemoSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $area = Area::where('serviceable', true)->firstOrFail();
+
+        // 本人確認済み・10,000P 保有のデモゲスト
+        $guest = User::updateOrCreate(
+            ['email' => 'guest@example.com'],
+            ['password' => Hash::make('password'), 'role' => 'guest', 'status' => 'active', 'nickname' => 'デモゲスト'],
+        );
+        IdentityVerification::updateOrCreate(
+            ['user_id' => $guest->id],
+            ['method' => 'ekyc', 'status' => 'verified', 'is_adult' => true, 'verified_at' => now()],
+        );
+        $wallet = PointWallet::firstOrCreate(['user_id' => $guest->id]);
+        if (PointTransaction::where('wallet_id', $wallet->id)->doesntExist()) {
+            PointTransaction::create([
+                'wallet_id' => $wallet->id,
+                'type' => 'purchase',
+                'kind' => 'paid',
+                'points' => 30000,
+                'idempotency_key' => 'demo-seed-purchase',
+                'expires_on' => now()->addDays(180),
+            ]);
+        }
+
+        // 在席キャスト（クラスごと）
+        $tiers = ClassTier::pluck('id', 'code');
+        $casts = [
+            ['premium', 'あおい', 24, 'now', false],
+            ['premium', 'みなと', 26, 'now', false],
+            ['vip', 'れい', 28, 'now', false],
+            ['vip', 'さき', 25, 'today', false],
+            ['royal_vip', 'ひなの', 27, 'now', false],
+            ['royal_vip', 'かえで', 29, 'today', true], // 合流中
+        ];
+        foreach ($casts as $i => [$class, $name, $age, $availability, $inSession]) {
+            $u = User::updateOrCreate(
+                ['email' => "cast{$i}@example.com"],
+                ['password' => Hash::make('password'), 'role' => 'cast', 'status' => 'active', 'nickname' => $name],
+            );
+            IdentityVerification::updateOrCreate(
+                ['user_id' => $u->id],
+                ['method' => 'ekyc', 'status' => 'verified', 'is_adult' => true, 'verified_at' => now()],
+            );
+            CastProfile::updateOrCreate(
+                ['user_id' => $u->id],
+                [
+                    'display_name' => $name,
+                    'class_tier_id' => $tiers[$class],
+                    'home_area_id' => $area->id,
+                    'screening_status' => 'approved',
+                    'is_active' => true,
+                    'availability' => $availability,
+                    'in_session' => $inSession,
+                    'age' => $age,
+                    'bio' => 'よろしくお願いします',
+                ],
+            );
+        }
+    }
+}
