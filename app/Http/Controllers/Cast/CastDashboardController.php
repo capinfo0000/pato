@@ -26,9 +26,14 @@ use Illuminate\View\View;
 final class CastDashboardController extends Controller
 {
     /** 募集中の呼び出し一覧（自分のクラス・エリアに合致するもの）。 */
-    public function index(): View
+    public function index(): View|RedirectResponse
     {
-        $cast = $this->cast();
+        $cast = CastProfile::where('user_id', Auth::id())->first();
+
+        // 未申込・審査中・却下はダッシュボードを開けない（申込/結果待ちへ誘導）
+        if ($cast === null || $cast->screening_status !== 'approved') {
+            return redirect()->route('cast.apply.show');
+        }
 
         $openCalls = Call::query()
             ->where('status', CallStatus::Open)

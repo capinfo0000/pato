@@ -37,6 +37,11 @@ final class CastProfile extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function screenings(): HasMany
+    {
+        return $this->hasMany(CastScreening::class);
+    }
+
     public function kpi(): HasOne
     {
         return $this->hasOne(CastKpi::class);

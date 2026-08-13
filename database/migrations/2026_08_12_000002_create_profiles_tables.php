@@ -40,6 +40,20 @@ return new class extends Migration
             $table->index(['is_active', 'availability']);
         });
 
+        // 審査の各段階の記録（写真 / 面談）
+        Schema::create('cast_screenings', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('cast_profile_id')->constrained()->cascadeOnDelete();
+            $table->enum('stage', ['photo', 'interview']);
+            $table->enum('result', ['pending', 'passed', 'failed'])->default('pending');
+            $table->foreignId('reviewed_by')->nullable()->constrained('users'); // admin
+            $table->text('note')->nullable();
+            $table->timestamp('reviewed_at')->nullable();
+            $table->timestamps();
+
+            $table->index(['cast_profile_id', 'result']);
+        });
+
         Schema::create('identity_verifications', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -56,6 +70,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('identity_verifications');
+        Schema::dropIfExists('cast_screenings');
         Schema::dropIfExists('cast_profiles');
         Schema::dropIfExists('guest_profiles');
     }

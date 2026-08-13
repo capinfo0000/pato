@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\ScreeningController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\Cast\CastDashboardController;
+use App\Http\Controllers\Cast\ScreeningApplicationController;
 use App\Http\Controllers\CastDirectoryController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PointController;
@@ -66,5 +68,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [CastDashboardController::class, 'index'])->name('index');
         Route::post('/calls/{call}/participate', [CastDashboardController::class, 'participate'])->name('participate');
         Route::post('/availability', [CastDashboardController::class, 'availability'])->name('availability');
+        Route::get('/apply', [ScreeningApplicationController::class, 'show'])->name('apply.show');
+        Route::post('/apply', [ScreeningApplicationController::class, 'store'])->name('apply.store');
+    });
+
+    // 管理（審査）
+    Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/screenings', [ScreeningController::class, 'index'])->name('screenings.index');
+        Route::get('/screenings/{castProfile}', [ScreeningController::class, 'show'])->name('screenings.show');
+        Route::post('/screenings/{castProfile}/advance', [ScreeningController::class, 'advance'])->name('screenings.advance');
+        Route::post('/screenings/{castProfile}/approve', [ScreeningController::class, 'approve'])->name('screenings.approve');
+        Route::post('/screenings/{castProfile}/reject', [ScreeningController::class, 'reject'])->name('screenings.reject');
     });
 });
