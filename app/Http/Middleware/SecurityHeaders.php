@@ -66,7 +66,8 @@ final class SecurityHeaders
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob:",
             "font-src 'self' data:",
-            "connect-src 'self' https://api.stripe.com",
+            // r.stripe.com は Stripe.js のエラー報告先。塞ぐと決済のデバッグができなくなる
+            "connect-src 'self' https://api.stripe.com https://js.stripe.com https://r.stripe.com",
             'frame-src https://js.stripe.com https://hooks.stripe.com',
             "form-action 'self'",
             "frame-ancestors 'none'",

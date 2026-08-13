@@ -120,6 +120,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/points', [PointController::class, 'index'])->name('points.index');
         Route::post('/points/purchase', [PointController::class, 'purchase'])
             ->middleware('throttle:payment')->name('points.purchase');
+        // 3Dセキュア認証後の確定。どの決済を確定するかはセッションが持つ
+        Route::post('/points/confirm', [PointController::class, 'confirm'])
+            ->middleware('throttle:payment')->name('points.confirm');
     });
 
     // キャスト

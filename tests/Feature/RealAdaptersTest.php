@@ -84,9 +84,10 @@ final class RealAdaptersTest extends TestCase
             'api.stripe.com/*' => Http::response(['id' => 'pi_123', 'status' => 'succeeded'], 200),
         ]);
 
-        $ref = (new StripePaymentGateway('sk_test_dummy'))->charge('pm_card_visa', 12000, 'key-1');
+        $result = (new StripePaymentGateway('sk_test_dummy'))->charge('pm_card_visa', 12000, 'key-1');
 
-        $this->assertSame('pi_123', $ref);
+        $this->assertTrue($result->succeeded());
+        $this->assertSame('pi_123', $result->reference);
         Http::assertSent(function ($request) {
             return $request->hasHeader('Idempotency-Key', 'key-1')
                 && $request['amount'] === 12000       // JPY はゼロ小数通貨。円をそのまま送る
@@ -126,12 +127,44 @@ final class RealAdaptersTest extends TestCase
 
     public function test_stripe_rejects_non_succeeded_status(): void
     {
+        // 3Dセキュア以外の未完了（カード再入力待ちなど）は失敗として扱う
         Http::fake([
-            'api.stripe.com/*' => Http::response(['id' => 'pi_1', 'status' => 'requires_action'], 200),
+            'api.stripe.com/*' => Http::response(['id' => 'pi_1', 'status' => 'requires_payment_method'], 200),
         ]);
 
         $this->expectException(\RuntimeException::class);
         (new StripePaymentGateway('sk_test_dummy'))->charge('pm_card_visa', 12000, 'key-2');
+    }
+
+    public function test_stripe_returns_requires_action_for_3d_secure_instead_of_failing(): void
+    {
+        // 日本のカードでは3Dセキュアが実質必須。ここで例外にすると正常な購入が全部落ちる
+        Http::fake([
+            'api.stripe.com/*' => Http::response([
+                'id' => 'pi_3ds', 'status' => 'requires_action',
+                'amount' => 12000, 'currency' => 'jpy', 'client_secret' => 'pi_3ds_secret_x',
+            ], 200),
+        ]);
+
+        $result = (new StripePaymentGateway('sk_test_dummy'))->charge('pm_card_visa', 12000, 'key-3');
+
+        $this->assertTrue($result->requiresAction());
+        $this->assertSame('pi_3ds_secret_x', $result->clientSecret);
+    }
+
+    public function test_stripe_confirm_reads_back_the_authoritative_amount_and_status(): void
+    {
+        // 確定時はクライアントの申告ではなく、Stripe が返す金額と状態を使う
+        Http::fake([
+            'api.stripe.com/v1/payment_intents/pi_3ds' => Http::response([
+                'id' => 'pi_3ds', 'status' => 'succeeded', 'amount' => 12000, 'currency' => 'jpy',
+            ], 200),
+        ]);
+
+        $result = (new StripePaymentGateway('sk_test_dummy'))->confirm('pi_3ds');
+
+        $this->assertTrue($result->succeeded());
+        $this->assertSame(12000, $result->amountYen);
     }
 
     // --- eKYC ---

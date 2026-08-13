@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Support\Adapters\Stripe;
 
+use App\Support\Contracts\ChargeResult;
 use App\Support\Contracts\PaymentGateway;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -14,6 +16,7 @@ use Illuminate\Support\Facades\Log;
  * 設計上の約束:
  * - カード番号は一切扱わない。フロントの Stripe.js が作った PaymentMethod ID のみ受け取る
  * - 冪等キーを Stripe にもそのまま渡し、リトライで二重課金しないようにする
+ * - 3Dセキュアが要求されたら `requires_action` を返す（失敗にしない）
  * - 失敗時は RuntimeException。呼び出し側（PurchasePointService）は台帳に何も書かない
  * - ログに card / PII を出さない（決済参照IDのみ）
  */
@@ -26,7 +29,7 @@ final class StripePaymentGateway implements PaymentGateway
         private readonly string $currency = 'jpy',
     ) {}
 
-    public function charge(string $paymentMethodToken, int $amountYen, string $idempotencyKey): string
+    public function charge(string $paymentMethodToken, int $amountYen, string $idempotencyKey): ChargeResult
     {
         if ($amountYen <= 0) {
             throw new \InvalidArgumentException('amountYen は正');
@@ -41,7 +44,9 @@ final class StripePaymentGateway implements PaymentGateway
                 'currency' => $this->currency,
                 'payment_method' => $paymentMethodToken,
                 'confirm' => 'true',
-                // 3DS 等でリダイレクトが必要になるケースはここでは扱わない（要求時はエラー）
+                // 3Dセキュアはリダイレクトではなくブラウザ内(モーダル)で処理する。
+                // 別ドメインへ飛ばさないぶん、フィッシングとの区別がつきやすい
+                'use_stripe_sdk' => 'true',
                 'automatic_payment_methods[enabled]' => 'true',
                 'automatic_payment_methods[allow_redirects]' => 'never',
             ]);
@@ -58,16 +63,46 @@ final class StripePaymentGateway implements PaymentGateway
             throw new \RuntimeException('payment_failed');
         }
 
-        $status = (string) $response->json('status');
-        if ($status !== 'succeeded') {
+        $result = $this->toResult($response);
+
+        if (! $result->succeeded() && ! $result->requiresAction()) {
             Log::warning('stripe.charge_not_succeeded', [
-                'status' => $status,
+                'status' => $result->status,
                 'idempotency_key' => $idempotencyKey,
             ]);
 
             throw new \RuntimeException('payment_failed');
         }
 
-        return (string) $response->json('id');
+        return $result;
+    }
+
+    public function confirm(string $reference): ChargeResult
+    {
+        $response = Http::withToken($this->secretKey)
+            ->get(self::ENDPOINT.'/'.urlencode($reference));
+
+        if ($response->failed()) {
+            Log::warning('stripe.retrieve_failed', [
+                'status' => $response->status(),
+                'code' => $response->json('error.code'),
+                'reference' => $reference,
+            ]);
+
+            throw new \RuntimeException('payment_lookup_failed');
+        }
+
+        return $this->toResult($response);
+    }
+
+    private function toResult(Response $response): ChargeResult
+    {
+        return new ChargeResult(
+            status: (string) $response->json('status'),
+            reference: (string) $response->json('id'),
+            amountYen: (int) $response->json('amount'),
+            currency: (string) $response->json('currency'),
+            clientSecret: $response->json('client_secret'),
+        );
     }
 }
