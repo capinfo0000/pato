@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Call;
 
+use App\Application\Messaging\PostMessageService;
 use App\Application\Ranking\RankingService;
 use App\Domain\Call\CallStateMachine;
 use App\Domain\Call\Enums\CallStatus;
@@ -31,6 +32,7 @@ final class CallLifecycleService
         private readonly WalletRepository $wallets,
         private readonly PushSender $push,
         private readonly RankingService $rankings = new RankingService,
+        private readonly PostMessageService $messages = new PostMessageService,
         private readonly CallStateMachine $sm = new CallStateMachine,
         private readonly TipDistributor $tips = new TipDistributor,
     ) {}
@@ -70,6 +72,9 @@ final class CallLifecycleService
 
             $this->sm->assertCanTransition($call->status, CallStatus::Matched);
             $call->update(['status' => CallStatus::Matched]);
+
+            // 成立したらゲストと参加キャストのグループチャットを開く
+            $this->messages->ensureCallThread($call->fresh());
 
             $this->push->send(
                 $call->guest_user_id,

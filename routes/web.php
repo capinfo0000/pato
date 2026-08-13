@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\CallController;
 use App\Http\Controllers\Cast\CastDashboardController;
 use App\Http\Controllers\CastDirectoryController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PointController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\VerificationController;
@@ -31,6 +32,12 @@ Route::middleware('auth')->group(function () {
 
     // ランキング（ゲスト / キャスト）
     Route::get('/rankings', [RankingController::class, 'index'])->name('rankings');
+
+    // メッセージ（ゲスト・キャスト共通）
+    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::get('/messages/{thread}', [MessageController::class, 'show'])->name('messages.show');
+    Route::post('/messages/{thread}', [MessageController::class, 'store'])->name('messages.store');
+    Route::post('/messages/{thread}/toggle', [MessageController::class, 'toggle'])->name('messages.toggle');
 
     // ゲスト: 呼ぶ導線
     Route::middleware('role:guest')->group(function () {

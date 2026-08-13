@@ -24,6 +24,19 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        // お気に入り・非表示・既読は「参加者ごと」に持つ
+        Schema::create('thread_participants', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('thread_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->boolean('is_favorite')->default(false);
+            $table->boolean('is_hidden')->default(false);
+            $table->timestamp('last_read_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['thread_id', 'user_id']);
+        });
+
         Schema::create('messages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('thread_id')->constrained()->cascadeOnDelete();
@@ -40,6 +53,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('messages');
+        Schema::dropIfExists('thread_participants');
         Schema::dropIfExists('threads');
     }
 };
