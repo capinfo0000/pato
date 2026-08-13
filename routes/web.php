@@ -23,6 +23,7 @@ use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SosController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\VerificationController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,11 @@ Route::get('/', function () {
 
 // ヘルスチェック（LB・監視用）
 Route::get('/healthz', HealthController::class)->name('health');
+
+// Stripe Webhook（認証なし。門番は署名検証のみ。CSRF は bootstrap/app.php で除外）
+// 大量再送でも詰まらないよう上限は緩め。無署名リクエストは検証で弾かれる
+Route::post('/webhooks/stripe', StripeWebhookController::class)
+    ->middleware('throttle:300,1')->name('webhooks.stripe');
 
 // PWA のオフラインシェル（Service Worker が事前キャッシュする）
 Route::view('/offline', 'offline')->name('offline');

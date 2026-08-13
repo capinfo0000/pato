@@ -44,7 +44,11 @@ return [
     */
 
     'stripe' => [
+        // 公開可能キー(pk_)。Stripe.js に渡すためブラウザへ出る。秘匿情報ではない
+        'publishable_key' => env('STRIPE_PUBLISHABLE_KEY'),
+        // 秘密鍵(sk_)。これが漏れると任意の課金・返金ができる。絶対にビューへ渡さない
         'secret' => env('STRIPE_SECRET'),
+        // Webhook 署名検証用(whsec_)。未設定なら Webhook は全て拒否される
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'currency' => env('STRIPE_CURRENCY', 'jpy'),
     ],

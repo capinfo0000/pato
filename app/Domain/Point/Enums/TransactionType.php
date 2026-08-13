@@ -20,6 +20,7 @@ enum TransactionType: string
     case Tip = 'tip';                 // おひねり消費（- 確定）
     case Expire = 'expire';           // 有効期限切れ失効（- 確定）
     case PayoutDebit = 'payout_debit'; // キャスト精算の引き落とし（- 確定, キャスト側ウォレット）
+    case Refund = 'refund';           // 返金・チャージバックによる回収（- 確定）
 
     /**
      * 「確定残高（settled）」への符号。ホールドは確定残高を動かさないので 0。
@@ -28,7 +29,7 @@ enum TransactionType: string
     {
         return match ($this) {
             self::Purchase, self::Grant => 1,
-            self::Capture, self::Tip, self::Expire, self::PayoutDebit => -1,
+            self::Capture, self::Tip, self::Expire, self::PayoutDebit, self::Refund => -1,
             self::Hold, self::Release => 0,
         };
     }

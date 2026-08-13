@@ -33,7 +33,7 @@ return new class extends Migration
         Schema::create('point_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('wallet_id')->constrained('point_wallets');
-            $table->enum('type', ['purchase', 'grant', 'hold', 'capture', 'release', 'tip', 'expire', 'payout_debit']);
+            $table->enum('type', ['purchase', 'grant', 'hold', 'capture', 'release', 'tip', 'expire', 'payout_debit', 'refund']);
             $table->enum('kind', ['paid', 'free']);
             $table->integer('points'); // 正の絶対量。符号は type が決める
             $table->foreignId('call_id')->nullable();

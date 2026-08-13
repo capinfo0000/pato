@@ -8,11 +8,11 @@
 **実装済み（`database/migrations/` に存在）**
 `users` / `guest_profiles` / `cast_profiles` / `cast_screenings` / `identity_verifications` /
 `areas` / `venues` / `class_tiers` / `area_class_prices` /
-`point_wallets` / `point_products` / `point_transactions` /
+`point_wallets` / `point_products` / `point_transactions` / `point_purchases` /
 `calls` / `call_line_items` / `call_participants` / `payouts` / `payout_items` /
 `threads` / `thread_participants` / `messages` / `reviews` / `reports` / `sos_events` /
 `cast_kpis` / `fan_points` / `badges` / `badge_grants` / `awards` / `rankings` /
-`push_subscriptions` / `audit_logs`
+`push_subscriptions` / `audit_logs` / `webhook_events`
 
 **未実装（本ドキュメントに設計はあるがテーブル未作成。機能実装と同時に作る）**
 `cast_tags`（詳細タグ検索）/ `coupons`・`coupon_grants`（クーポン）/ `gifts`（まとめてギフト）/
@@ -35,6 +35,8 @@ erDiagram
 
     POINT_WALLETS ||--o{ POINT_TRANSACTIONS : ledger
     POINT_PRODUCTS ||--o{ POINT_TRANSACTIONS : purchased_via
+    POINT_WALLETS ||--o{ POINT_PURCHASES : "bought (返金の回収対象)"
+    POINT_PRODUCTS ||--o{ POINT_PURCHASES : sold_as
 
     AREAS ||--o{ CALLS : located_in
     AREAS ||--o{ AREA_CLASS_PRICES : prices
@@ -148,13 +150,32 @@ erDiagram
     POINT_TRANSACTIONS {
       bigint id PK
       bigint wallet_id FK
-      enum type "purchase|hold|capture|release|expire|tip|payout_debit|grant"
+      enum type "purchase|hold|capture|release|expire|tip|payout_debit|grant|refund"
       enum kind "paid|free"
       int points "正の絶対量。符号は type が決める"
       bigint call_id FK "nullable"
       bigint product_id FK "nullable"
       date expires_on "nullable(付与から180日)"
       string idempotency_key UK
+      timestamp created_at
+    }
+
+    POINT_PURCHASES {
+      bigint id PK
+      bigint wallet_id FK
+      bigint product_id FK "nullable"
+      int paid_points
+      int price_yen
+      string charge_ref UK "PSPの決済参照ID(PaymentIntent)"
+      timestamp refunded_at "nullable"
+      int refunded_points "返金で回収したポイント"
+    }
+
+    WEBHOOK_EVENTS {
+      bigint id PK
+      string provider "stripe"
+      string event_id "provider内で一意"
+      string type "payment_intent.succeeded など"
       timestamp created_at
     }
 

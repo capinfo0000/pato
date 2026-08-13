@@ -7,6 +7,7 @@ namespace App\Application\Point;
 use App\Domain\Point\Contracts\WalletRepository;
 use App\Domain\Point\Support\PointTransaction as PointTx;
 use App\Models\PointProduct;
+use App\Models\PointPurchase;
 use App\Models\PointWallet;
 use App\Support\Contracts\PaymentGateway;
 use Illuminate\Support\Facades\DB;
@@ -41,7 +42,7 @@ final class PurchasePointService
         // PSP 課金は DB トランザクションの外（外部通信をロック内に持ち込まない）
         $chargeRef = $this->gateway->charge($paymentMethodToken, $product->price_yen, $idempotencyKey);
 
-        DB::transaction(function () use ($userId, $product, $idempotencyKey) {
+        DB::transaction(function () use ($userId, $product, $idempotencyKey, $chargeRef) {
             $wallet = PointWallet::firstOrCreate(['user_id' => $userId]);
 
             $this->wallets->append(
@@ -52,6 +53,16 @@ final class PurchasePointService
                 ),
                 $idempotencyKey,
             );
+
+            // 返金時にどの購入を回収するか特定できるよう、決済参照IDと紐づけて残す。
+            // これが無いと Stripe の返金通知を受けてもポイントを戻せない（＝損失）
+            PointPurchase::create([
+                'wallet_id' => $wallet->id,
+                'product_id' => $product->id,
+                'paid_points' => $product->paid_points,
+                'price_yen' => $product->price_yen,
+                'charge_ref' => $chargeRef,
+            ]);
         });
 
         return [

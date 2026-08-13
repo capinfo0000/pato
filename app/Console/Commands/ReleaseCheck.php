@@ -124,6 +124,21 @@ final class ReleaseCheck extends Command
             $adapterBucket === 'failures' ? $failures = $bucket : $warnings = $bucket;
         }
 
+        // 9. Webhook 署名シークレット
+        //    未設定だと Webhook が全て 400 になり、返金・チャージバックの通知を取りこぼす。
+        //    ポイントを回収できないまま入金だけ引き上げられる＝そのまま損失になる。
+        if (! app(PaymentGateway::class) instanceof FakePaymentGateway) {
+            $bucket = $adapterBucket === 'failures' ? $failures : $warnings;
+            $this->check(
+                'Stripe Webhook の署名シークレット',
+                filled(config('services.stripe.webhook_secret')),
+                $bucket,
+                'STRIPE_WEBHOOK_SECRET（whsec_...）を設定してください。'
+                    .'未設定だと返金・チャージバックの通知を全て拒否し、ポイントを回収できません',
+            );
+            $adapterBucket === 'failures' ? $failures = $bucket : $warnings = $bucket;
+        }
+
         $this->line('');
 
         foreach ($warnings as $warning) {

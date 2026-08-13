@@ -196,19 +196,45 @@ curl /healthz                     # DB・キャッシュの疎通（LB・監視�
   `FOR UPDATE` で掴む。トランザクション外で呼ぶと例外（静かに壊れさせない）
 - **二重課金/二重計上を防ぐ**: 冪等キーを Stripe と台帳の UNIQUE 制約の両方で効かせる。
   決済失敗時は台帳に何も書かない
+- **Webhook は署名検証だけが門番**: `POST /webhooks/stripe` は認証も CSRF も無い。
+  生ボディを HMAC-SHA256 で検証し、`hash_equals` で定数時間比較、±300秒でリプレイ拒否。
+  **`STRIPE_WEBHOOK_SECRET` 未設定なら全拒否**（設定漏れを素通しにしない）。
+  CSRF 除外はこの1本のみで、増減はテストが検出する
+- **返金・チャージバックでポイントを必ず回収**: `point_purchases.charge_ref` で購入を特定し、
+  部分返金は金額比で按分（端数は切り上げ＝取りこぼさない）。使用済みで残高が足りない場合も
+  回収してマイナスを許容し、`refund.balance_shortfall` を残して運営が対応する。
+  処理が失敗したら 5xx を返して Stripe に再送させる（200 で再送を止めない）
 - **レート制限**: 購入5回/分（カードテスト対策）、ログイン5回/分（IP＋メール）、
-  SOS は「押せない方が危険」なので緩め
+  SOS は「押せない方が危険」なので緩め、Webhook は再送で詰まらないよう300回/分
 - **セキュリティヘッダ**: CSP / HSTS(HTTPS時) / X-Frame-Options: DENY / Referrer-Policy
 - **PII**: eKYC 書類は自社に持ち込まない。生年月日は暗号化。ログは `MaskPii` で自動マスク
 - **監査ログ**: 制裁・精算・料金変更・審査を追記のみで記録
 
 ```bash
-vendor/bin/phpunit --filter "WebSecurityTest|LedgerConcurrencyTest|LockedReadGuardTest"
+vendor/bin/phpunit --filter "WebSecurityTest|LedgerConcurrencyTest|LockedReadGuardTest|StripeWebhook|StripeSignature"
 composer audit    # 依存の既知脆弱性（CI に組み込むこと）
 ```
 
 > 未対応: 第三者ペネトレーションテスト、Laravel 12 への更新（既知脆弱性）、
 > CSP の `'unsafe-inline'` 除去、管理者の二要素認証。`docs/08_security.md` §7 参照。
+
+**Stripe の設定（`.env`。未設定のうちは Fake アダプタで動く）**
+
+| 変数 | 取得元 | 性質 |
+|---|---|---|
+| `STRIPE_PUBLISHABLE_KEY` | ダッシュボード > 開発者 > APIキー | `pk_...` ブラウザに出る。秘匿情報ではない |
+| `STRIPE_SECRET` | 同上 | `sk_...` **漏れると任意の課金・返金ができる**。ビューに渡さない |
+| `STRIPE_WEBHOOK_SECRET` | Webhook エンドポイント作成時 | `whsec_...` **未設定だと Webhook を全拒否**＝返金を取りこぼす |
+
+本番の Webhook 登録先は `https://<ドメイン>/webhooks/stripe`。購読するイベントは
+`payment_intent.succeeded` / `charge.refunded` / `charge.dispute.created`。
+
+ローカルで試すときは Stripe CLI で転送する（表示された `whsec_...` を `.env` に入れる）:
+
+```bash
+stripe listen --forward-to localhost:8000/webhooks/stripe
+stripe trigger charge.refunded
+```
 
 **デモアカウント**
 ```
@@ -219,8 +245,6 @@ composer audit    # 依存の既知脆弱性（CI に組み込むこと）
 
 ## 8. まだ無いもの（TODO）
 
-- [ ] Web Push の VAPID 署名（web-push ライブラリ導入。現在は購読管理と送信経路まで）
-- [ ] Stripe Webhook（非同期の決済確定・返金イベントの取り込み）
 - [ ] eKYC ベンダ確定後のレスポンスマッピング調整（`HttpEkycProvider` の `$map`）
 - [ ] コパト（1対1）、つぶやき、クーポン/リファラル、まとめてギフト
 - [ ] **リリースゲート（docs/07）: 弁護士レビューと異性紹介事業の届出**（人の手続き）
