@@ -62,6 +62,7 @@ final class CreateCallService
         bool $isNight,
         string $venueKind,
         ?string $note = null,
+        ?int $nominatedCastProfileId = null,
     ): array {
         $this->assertGate($guestUserId, $areaId);
 
@@ -72,7 +73,7 @@ final class CreateCallService
 
         return DB::transaction(function () use (
             $guestUserId, $areaId, $lineItems, $startAt, $durationMin,
-            $isNight, $venueKind, $note, $quote, $headcount, $isMix
+            $isNight, $venueKind, $note, $quote, $headcount, $isMix, $nominatedCastProfileId
         ) {
             $wallet = PointWallet::firstOrCreate(['user_id' => $guestUserId]);
 
@@ -92,6 +93,7 @@ final class CreateCallService
                 'is_mix' => $isMix,
                 'is_night' => $isNight,
                 'venue_kind' => $venueKind,
+                'nominated_cast_profile_id' => $nominatedCastProfileId,
                 'note' => $note,
             ]);
 

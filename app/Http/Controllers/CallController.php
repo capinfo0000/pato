@@ -6,15 +6,19 @@ namespace App\Http\Controllers;
 
 use App\Application\Call\CallLifecycleService;
 use App\Application\Call\CreateCallService;
+use App\Application\Trust\ReviewService;
 use App\Domain\Point\Contracts\WalletRepository;
 use App\Http\Requests\CreateCallRequest;
 use App\Models\Area;
 use App\Models\Call;
 use App\Models\CastProfile;
 use App\Models\PointWallet;
+use App\Models\Review;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -92,6 +96,7 @@ final class CallController extends Controller
                 isNight: (bool) ($data['is_night'] ?? false),
                 venueKind: $data['venue_kind'],
                 note: $data['note'] ?? null,
+                nominatedCastProfileId: $data['nominated_cast_profile_id'] ?? null,
             );
         } catch (\DomainException $e) {
             $message = str_starts_with($e->getMessage(), 'insufficient_points')
@@ -115,6 +120,10 @@ final class CallController extends Controller
             'call' => $call->load('area', 'lineItems.classTier', 'participants.castProfile.classTier'),
             'balance' => $this->availablePoints(),
             'minTip' => CallLifecycleService::MIN_TIP_POINTS,
+            'reviewedUserIds' => Review::where('call_id', $call->id)
+                ->where('rater_user_id', Auth::id())
+                ->pluck('ratee_user_id')->all(),
+            'reviewTags' => ReviewService::GUEST_TAGS,
         ]);
     }
 
@@ -174,6 +183,56 @@ final class CallController extends Controller
             $call,
             'おひねりを送りました。',
         );
+    }
+
+    /** 延長（30分単位。追加ぶんを与信）。 */
+    public function extend(Request $request, Call $call, CallLifecycleService $lifecycle): RedirectResponse
+    {
+        abort_unless($call->guest_user_id === Auth::id(), 403);
+
+        $validated = $request->validate([
+            'minutes' => ['required', 'integer', 'in:30,60,90,120'],
+        ]);
+
+        return $this->run(
+            fn () => $lifecycle->extend($call, (int) $validated['minutes']),
+            $call,
+            $validated['minutes'].'分延長しました。',
+        );
+    }
+
+    /** レビュー投稿（完了後）。 */
+    public function review(Request $request, Call $call, ReviewService $reviews): RedirectResponse
+    {
+        abort_unless($call->guest_user_id === Auth::id(), 403);
+
+        $validated = $request->validate([
+            'ratee_user_id' => ['required', 'integer', 'exists:users,id'],
+            'stars' => ['required', 'integer', 'min:1', 'max:5'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['string', Rule::in(ReviewService::GUEST_TAGS)],
+            'comment' => ['nullable', 'string', 'max:300'],
+        ]);
+
+        try {
+            $reviews->post(
+                $call,
+                Auth::user(),
+                User::findOrFail($validated['ratee_user_id']),
+                (int) $validated['stars'],
+                $validated['tags'] ?? [],
+                $validated['comment'] ?? null,
+            );
+        } catch (\DomainException $e) {
+            return redirect()->route('calls.show', $call)->with('error', match ($e->getMessage()) {
+                'already_reviewed' => 'すでに評価済みです。',
+                'call_not_completed' => '完了後に評価できます。',
+                'not_a_participant' => 'この呼び出しの参加者ではありません。',
+                default => '評価を送信できませんでした。',
+            });
+        }
+
+        return redirect()->route('calls.show', $call)->with('status', '評価を送信しました。');
     }
 
     /** ライフサイクル操作の共通ハンドリング（ドメイン例外を日本語に変換）。 */

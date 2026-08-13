@@ -58,7 +58,7 @@
         </div>
     @endif
 
-    <a class="btn" href="{{ route('calls.create') }}">このクラスで呼ぶ</a>
+    <a class="btn" href="{{ route('calls.create', ['nominate' => $cast->id]) }}">このキャストを指名して呼ぶ</a>
     <div style="height:8px"></div>
     <a class="btn secondary" href="{{ route('casts.index') }}">検索に戻る</a>
 @endsection

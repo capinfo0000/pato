@@ -13,6 +13,11 @@ use App\Domain\Point\Contracts\WalletRepository;
 use App\Domain\Point\Enums\PointKind;
 use App\Domain\Point\Enums\TransactionType;
 use App\Domain\Point\Support\PointTransaction as PointTx;
+use App\Domain\Pricing\Contracts\PriceTableRepository;
+use App\Domain\Pricing\DTO\CallLineItem as LineItemDTO;
+use App\Domain\Pricing\DTO\PriceQuote;
+use App\Domain\Pricing\Enums\CastClass;
+use App\Domain\Pricing\PricingCalculator;
 use App\Models\Call;
 use App\Models\CastProfile;
 use App\Models\PayoutItem;
@@ -31,10 +36,12 @@ final class CallLifecycleService
     public function __construct(
         private readonly WalletRepository $wallets,
         private readonly PushSender $push,
+        private readonly PriceTableRepository $prices,
         private readonly RankingService $rankings = new RankingService,
         private readonly PostMessageService $messages = new PostMessageService,
         private readonly CallStateMachine $sm = new CallStateMachine,
         private readonly TipDistributor $tips = new TipDistributor,
+        private readonly PricingCalculator $calculator = new PricingCalculator,
     ) {}
 
     /**
@@ -100,6 +107,69 @@ final class CallLifecycleService
             CastProfile::whereIn('id', $call->participants()->pluck('cast_profile_id'))
                 ->update(['in_session' => true]);
         });
+    }
+
+    /**
+     * 延長（30分単位）。追加ぶんを与信し、完了時にまとめて確定消費する。
+     * 合流中（in_progress）のみ可能。
+     *
+     * @return array{added_hold:int, added_payout:int}
+     */
+    public function extend(Call $call, int $minutes): array
+    {
+        if ($minutes <= 0 || $minutes % 30 !== 0) {
+            throw new \InvalidArgumentException('延長は30分単位');
+        }
+
+        return DB::transaction(function () use ($call, $minutes) {
+            $call->refresh();
+
+            if ($call->status !== CallStatus::InProgress) {
+                throw new \DomainException('not_in_progress');
+            }
+
+            // 現在の明細と同条件で、追加時間ぶんの見積を取る
+            $quote = $this->quoteForExtension($call, $minutes);
+
+            $wallet = PointWallet::firstOrCreate(['user_id' => $call->guest_user_id]);
+            if (! $this->wallets->load($wallet->id)->balance()->canHold($quote->guestHoldPoints)) {
+                throw new \DomainException('insufficient_points_for_extension');
+            }
+
+            $seq = $call->duration_min; // 延長ごとに冪等キーを分ける
+            $this->wallets->append(
+                $wallet->id,
+                PointTx::hold($quote->guestHoldPoints, $call->id),
+                "extend-call-{$call->id}-{$seq}",
+            );
+
+            $call->update([
+                'duration_min' => $call->duration_min + $minutes,
+                'hold_points' => $call->hold_points + $quote->guestHoldPoints,
+                'cast_payout_points' => $call->cast_payout_points + $quote->castPayoutPoints,
+            ]);
+
+            return [
+                'added_hold' => $quote->guestHoldPoints,
+                'added_payout' => $quote->castPayoutPoints,
+            ];
+        });
+    }
+
+    /** 延長ぶんの料金を、元の呼び出しと同じ条件で見積もる。 */
+    private function quoteForExtension(Call $call, int $minutes): PriceQuote
+    {
+        $table = $this->prices->forArea((int) $call->area_id);
+
+        $items = $call->lineItems()->with('classTier')->get()->map(
+            fn ($li) => new LineItemDTO(
+                CastClass::from($li->classTier->code),
+                $li->headcount,
+                (bool) $li->nominated,
+            ),
+        )->all();
+
+        return $this->calculator->quote($table, $items, $minutes, (bool) $call->is_night);
     }
 
     /**

@@ -60,6 +60,21 @@
         <div style="height:8px"></div>
 
         <div class="card">
+            <h2>延長する</h2>
+            <p class="sub">30分単位で延長できます。追加ぶんを与信します。</p>
+            <form method="POST" action="{{ route('calls.extend', $call) }}">@csrf
+                <select name="minutes">
+                    <option value="30">30分</option>
+                    <option value="60">1時間</option>
+                    <option value="90">1時間30分</option>
+                    <option value="120">2時間</option>
+                </select>
+                <div style="height:8px"></div>
+                <button class="btn secondary" type="submit">延長する</button>
+            </form>
+        </div>
+
+        <div class="card">
             <h2>おひねりを送る</h2>
             <p class="sub">{{ number_format($minTip) }}P以上。参加キャストへ均等に配分されます。</p>
             <form method="POST" action="{{ route('calls.tip', $call) }}">@csrf
@@ -67,6 +82,40 @@
                 <div style="height:8px"></div>
                 <button class="btn secondary" type="submit">送る</button>
             </form>
+        </div>
+    @endif
+
+    @if ($call->status->value === 'completed' && $call->participants->isNotEmpty())
+        <div class="card">
+            <h2>キャストを評価する</h2>
+            <p class="sub">評価はキャストの実績に反映されます。</p>
+            @foreach ($call->participants as $p)
+                @php $rateeId = $p->castProfile?->user_id; @endphp
+                @if ($rateeId && ! in_array($rateeId, $reviewedUserIds, true))
+                    <form method="POST" action="{{ route('calls.review', $call) }}" style="margin-bottom:14px">
+                        @csrf
+                        <input type="hidden" name="ratee_user_id" value="{{ $rateeId }}">
+                        <label>{{ $p->castProfile?->display_name }} さん</label>
+                        <select name="stars">
+                            @for ($i = 5; $i >= 1; $i--)
+                                <option value="{{ $i }}">★{{ $i }}</option>
+                            @endfor
+                        </select>
+                        <div style="margin:8px 0">
+                            @foreach ($reviewTags as $tag)
+                                <label style="display:inline-block;margin-right:10px">
+                                    <input type="checkbox" name="tags[]" value="{{ $tag }}"> {{ $tag }}
+                                </label>
+                            @endforeach
+                        </div>
+                        <input type="text" name="comment" placeholder="ひとこと（任意）">
+                        <div style="height:8px"></div>
+                        <button class="btn secondary" type="submit">評価を送る</button>
+                    </form>
+                @elseif ($rateeId)
+                    <div class="row"><span class="k">{{ $p->castProfile?->display_name }}</span><span class="v">評価済み</span></div>
+                @endif
+            @endforeach
         </div>
     @endif
 

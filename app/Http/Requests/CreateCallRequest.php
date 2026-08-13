@@ -49,6 +49,7 @@ final class CreateCallRequest extends FormRequest
             'venue_kind' => ['required', Rule::in(['restaurant', 'bar', 'public'])], // 密室禁止(法務04)
             'is_night' => ['sometimes', 'boolean'],
             'note' => ['nullable', 'string', 'max:500'],
+            'nominated_cast_profile_id' => ['nullable', 'integer', 'exists:cast_profiles,id'],
 
             'items' => ['required', 'array', 'min:1'],
             'items.*.class' => ['required', Rule::in(['premium', 'vip', 'royal_vip'])],

@@ -14,6 +14,10 @@
 
         <form method="POST" action="{{ route('calls.confirm') }}">
             @csrf
+            @if (request('nominate'))
+                <input type="hidden" name="nominated_cast_profile_id" value="{{ request('nominate') }}">
+                <div class="warn">指名で呼び出します（指名加算があります）。</div>
+            @endif
 
             <label>合流エリア</label>
             <select name="area_id" required>

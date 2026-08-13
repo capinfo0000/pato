@@ -55,6 +55,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/calls/{call}/complete', [CallController::class, 'complete'])->name('calls.complete');
         Route::post('/calls/{call}/cancel', [CallController::class, 'cancel'])->name('calls.cancel');
         Route::post('/calls/{call}/tip', [CallController::class, 'tip'])->name('calls.tip');
+        Route::post('/calls/{call}/extend', [CallController::class, 'extend'])->name('calls.extend');
+        Route::post('/calls/{call}/review', [CallController::class, 'review'])->name('calls.review');
 
         // 探す（絞り込み検索・キャスト詳細・選んで呼ぶ）
         Route::get('/casts', [CastDirectoryController::class, 'index'])->name('casts.index');
