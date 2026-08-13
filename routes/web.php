@@ -15,9 +15,11 @@ use App\Http\Controllers\Cast\CastDashboardController;
 use App\Http\Controllers\Cast\PayoutController as CastPayoutController;
 use App\Http\Controllers\Cast\ScreeningApplicationController;
 use App\Http\Controllers\CastDirectoryController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PointController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SosController;
@@ -36,6 +38,9 @@ Route::get('/', function () {
         default => redirect()->route('calls.home'),
     };
 });
+
+// ヘルスチェック（LB・監視用）
+Route::get('/healthz', HealthController::class)->name('health');
 
 // PWA のオフラインシェル（Service Worker が事前キャッシュする）
 Route::view('/offline', 'offline')->name('offline');
@@ -69,6 +74,10 @@ Route::middleware('auth')->group(function () {
     // SOS（合流中の緊急連絡。ゲスト・キャスト共通）
     Route::get('/sos', [SosController::class, 'create'])->name('sos.create');
     Route::post('/sos', [SosController::class, 'store'])->name('sos.store');
+
+    // Web Push の購読登録・解除
+    Route::post('/push/subscribe', [PushSubscriptionController::class, 'store'])->name('push.subscribe');
+    Route::post('/push/unsubscribe', [PushSubscriptionController::class, 'destroy'])->name('push.unsubscribe');
 
     // メッセージ（ゲスト・キャスト共通）
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');

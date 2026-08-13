@@ -11,7 +11,8 @@
 `point_wallets` / `point_products` / `point_transactions` /
 `calls` / `call_line_items` / `call_participants` / `payouts` / `payout_items` /
 `threads` / `thread_participants` / `messages` / `reviews` / `reports` / `sos_events` /
-`cast_kpis` / `fan_points` / `badges` / `badge_grants` / `awards` / `rankings`
+`cast_kpis` / `fan_points` / `badges` / `badge_grants` / `awards` / `rankings` /
+`push_subscriptions` / `audit_logs`
 
 **未実装（本ドキュメントに設計はあるがテーブル未作成。機能実装と同時に作る）**
 `cast_tags`（詳細タグ検索）/ `coupons`・`coupon_grants`（クーポン）/ `gifts`（まとめてギフト）/

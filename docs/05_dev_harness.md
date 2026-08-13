@@ -170,6 +170,22 @@ php artisan pato:rankings       # ランキング集計（日次）
 - 管理: ダッシュボード(GMV・テイクレート実績・供給/需要・要対応件数)、
   料金マスタ編集(単価/テイクレート/加算率)、エリアの提供可否切替
 
+**実アダプタ（認証情報があれば自動で切り替わる）**
+- 決済: `StripePaymentGateway`（PaymentIntents、冪等キーを Stripe にも渡す。カード番号は扱わない）
+- 本人確認: `HttpEkycProvider`（結果と年齢要件の充足のみ持ち帰る。生年月日は保持しない）
+- 通知: `WebPushSender` ＋ `SendPushJob`（キュー送信、410/404 の購読は自動削除）
+- 未設定なら Fake にフォールバック。本番で Fake のままなら `pato:release-check` が止める
+
+**本番構成**
+```bash
+php artisan queue:work redis      # SendPushJob / ランキング集計 / 期限切れ解放
+php artisan schedule:work         # 5分毎: 与信解放 / 日次: ランキング（いずれもJob経由）
+curl /healthz                     # DB・キャッシュの疎通（LB・監視用）
+```
+- 監査ログ `audit_logs`: 制裁・精算承認/送金・料金変更・審査結果を追記のみで記録
+- ログは `MaskPii` プロセッサでメール/電話/生年月日/トークンをマスク（daily・single チャンネル）
+- 本番の環境変数は `.env.production.example` を参照
+
 **デモアカウント**
 ```
 ゲスト  guest@example.com / password
@@ -179,7 +195,8 @@ php artisan pato:rankings       # ランキング集計（日次）
 
 ## 8. まだ無いもの（TODO）
 
-- [ ] 実 Adapter（Stripe 等 PaymentGateway / eKYC ベンダ / Web Push 送信）
+- [ ] Web Push の VAPID 署名（web-push ライブラリ導入。現在は購読管理と送信経路まで）
+- [ ] Stripe Webhook（非同期の決済確定・返金イベントの取り込み）
+- [ ] eKYC ベンダ確定後のレスポンスマッピング調整（`HttpEkycProvider` の `$map`）
 - [ ] コパト（1対1）、つぶやき、クーポン/リファラル、まとめてギフト
-- [ ] 本番向け: キュー(Redis)・監視・監査ログの整備
-- [ ] リリースゲート（docs/04）: 弁護士レビューと異性紹介事業の届出
+- [ ] **リリースゲート（docs/07）: 弁護士レビューと異性紹介事業の届出**（人の手続き）

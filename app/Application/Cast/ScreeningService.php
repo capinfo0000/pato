@@ -8,6 +8,7 @@ use App\Models\CastProfile;
 use App\Models\CastScreening;
 use App\Models\ClassTier;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -110,6 +111,7 @@ final class ScreeningService
                 'class_tier_id' => $tierId,
                 'is_active' => true,
             ]);
+            Audit::log('screening.approved', $profile, ['class' => $classCode]);
 
             return $profile->fresh();
         });
@@ -133,6 +135,7 @@ final class ScreeningService
                 'is_active' => false,
                 'availability' => 'offline',
             ]);
+            Audit::log('screening.rejected', $profile);
 
             return $profile->fresh();
         });

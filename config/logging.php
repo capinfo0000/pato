@@ -1,5 +1,6 @@
 <?php
 
+use App\Logging\ApplyPiiMask;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -60,6 +61,7 @@ return [
 
         'single' => [
             'driver' => 'single',
+            'tap' => [ApplyPiiMask::class],
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
@@ -67,6 +69,7 @@ return [
 
         'daily' => [
             'driver' => 'daily',
+            'tap' => [ApplyPiiMask::class],
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),

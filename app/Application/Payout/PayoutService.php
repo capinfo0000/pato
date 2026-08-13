@@ -14,6 +14,7 @@ use App\Models\Payout;
 use App\Models\PayoutItem;
 use App\Models\PointWallet;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -94,6 +95,7 @@ final class PayoutService
             }
 
             $payout->update(['status' => 'approved']);
+            Audit::log('payout.approved', $payout, ['amount_points' => $payout->amount_points]);
 
             return $payout->fresh();
         });
@@ -118,6 +120,7 @@ final class PayoutService
             );
 
             $payout->update(['status' => 'paid', 'paid_at' => now()]);
+            Audit::log('payout.paid', $payout, ['amount_points' => $payout->amount_points]);
 
             return $payout->fresh();
         });
@@ -134,6 +137,7 @@ final class PayoutService
 
             PayoutItem::where('payout_id', $payout->id)->update(['payout_id' => null]);
             $payout->update(['status' => 'rejected']);
+            Audit::log('payout.rejected', $payout, ['amount_points' => $payout->amount_points]);
 
             return $payout->fresh();
         });

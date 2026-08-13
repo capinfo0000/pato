@@ -7,6 +7,7 @@ namespace App\Application\Trust;
 use App\Models\Call;
 use App\Models\Report;
 use App\Models\User;
+use App\Support\Audit;
 use App\Support\Contracts\PushSender;
 use Illuminate\Support\Facades\DB;
 
@@ -94,6 +95,7 @@ final class ReportService
         $user = User::findOrFail($userId);
         $user->update(['status' => 'suspended']);
 
+        Audit::log('user.suspended', $user);
         $this->push->send($userId, 'ご利用制限のお知らせ', 'ガイドライン違反のためアカウントを制限しました。');
 
         return $user->fresh();
@@ -104,6 +106,8 @@ final class ReportService
     {
         $user = User::findOrFail($userId);
         $user->update(['status' => 'active']);
+
+        Audit::log('user.reinstated', $user);
 
         return $user->fresh();
     }

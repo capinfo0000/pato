@@ -116,8 +116,30 @@
     <script>
         // Service Worker 登録（PWA: インストール可能化とオフラインシェル）
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            window.addEventListener('load', async () => {
+                const registration = await navigator.serviceWorker.register('/sw.js').catch(() => null);
+
+                @auth
+                @if (config('services.webpush.public_key'))
+                // Web Push の購読を登録（許可済みのときだけ。ここでは許可を求めない）
+                if (registration && 'PushManager' in window && Notification.permission === 'granted') {
+                    try {
+                        const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: '{{ config('services.webpush.public_key') }}',
+                        });
+                        await fetch('{{ route('push.subscribe') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                            },
+                            body: JSON.stringify(subscription.toJSON()),
+                        });
+                    } catch (e) { /* 購読できなくてもアプリは動く */ }
+                }
+                @endif
+                @endauth
             });
         }
     </script>
