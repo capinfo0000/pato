@@ -87,6 +87,7 @@ final class CreateCallService
                 'duration_min' => $durationMin,
                 'headcount' => $headcount,
                 'hold_points' => $quote->guestHoldPoints,
+                'cast_payout_points' => $quote->castPayoutPoints,
                 'status' => 'open',
                 'is_mix' => $isMix,
                 'is_night' => $isNight,

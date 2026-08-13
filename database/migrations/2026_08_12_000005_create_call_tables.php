@@ -22,6 +22,7 @@ return new class extends Migration
             $table->unsignedInteger('duration_min'); // 30単位
             $table->unsignedInteger('headcount');
             $table->unsignedInteger('hold_points');
+            $table->unsignedInteger('cast_payout_points')->default(0); // 作成時に確定させる報酬総額
             $table->enum('status', ['draft', 'open', 'matched', 'in_progress', 'completed', 'canceled', 'expired'])->default('draft');
             $table->boolean('is_mix')->default(false);
             $table->foreignId('nominated_cast_profile_id')->nullable()->constrained('cast_profiles');

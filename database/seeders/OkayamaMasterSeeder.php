@@ -54,6 +54,16 @@ final class OkayamaMasterSeeder extends Seeder
             ]);
         }
 
+        // 称賛バッジ（ゲスト → キャスト）
+        foreach ([
+            'healing' => '癒し系', 'sparkle' => 'キラキラ',
+            'humor' => 'ユーモア', 'diva' => '歌姫', 'smart' => '博識',
+        ] as $code => $name) {
+            DB::table('badges')->insert([
+                'code' => $code, 'name' => $name, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+
         // ポイント商品（1P=¥1.2 基準の例）
         DB::table('point_products')->insert([
             ['paid_points' => 5000, 'price_yen' => 6000, 'active' => true, 'created_at' => now(), 'updated_at' => now()],

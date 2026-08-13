@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Models\Area;
+use App\Models\Badge;
+use App\Models\BadgeGrant;
+use App\Models\CastKpi;
 use App\Models\CastProfile;
 use App\Models\ClassTier;
 use App\Models\IdentityVerification;
@@ -64,7 +67,7 @@ final class DemoSeeder extends Seeder
                 ['user_id' => $u->id],
                 ['method' => 'ekyc', 'status' => 'verified', 'is_adult' => true, 'verified_at' => now()],
             );
-            CastProfile::updateOrCreate(
+            $profile = CastProfile::updateOrCreate(
                 ['user_id' => $u->id],
                 [
                     'display_name' => $name,
@@ -78,6 +81,28 @@ final class DemoSeeder extends Seeder
                     'bio' => 'よろしくお願いします',
                 ],
             );
+
+            // 評価指標（デモ値）
+            CastKpi::updateOrCreate(
+                ['cast_profile_id' => $profile->id],
+                [
+                    'extend_rate_x10' => 40 + $i,
+                    'repeat_rate_x10' => 42 + $i,
+                    'remeet_rate_x10' => 46 + $i,
+                    'fan_points_total' => (6 - $i) * 120,
+                    'recalculated_at' => now(),
+                ],
+            );
+
+            // ゲストから受け取ったバッジ（デモ）
+            $badges = Badge::pluck('id')->all();
+            if ($badges !== []) {
+                BadgeGrant::firstOrCreate([
+                    'badge_id' => $badges[$i % count($badges)],
+                    'from_user_id' => $guest->id,
+                    'cast_profile_id' => $profile->id,
+                ]);
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ final class EloquentWalletRepository implements WalletRepository
             'kind' => $tx->kind,
             'points' => $tx->points,
             'call_id' => $tx->callId,
+            'expires_on' => $tx->expiresOn,
             'idempotency_key' => $idempotencyKey,
         ]);
     }

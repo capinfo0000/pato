@@ -20,20 +20,21 @@ final readonly class PointTransaction
         public PointKind $kind,
         public int $points,
         public ?int $callId = null,
+        public ?string $expiresOn = null,
     ) {
         if ($points < 0) {
             throw new \InvalidArgumentException('points は正の絶対量で指定する（符号は type が決める）');
         }
     }
 
-    public static function purchase(int $points): self
+    public static function purchase(int $points, ?string $expiresOn = null): self
     {
-        return new self(TransactionType::Purchase, PointKind::Paid, $points);
+        return new self(TransactionType::Purchase, PointKind::Paid, $points, null, $expiresOn);
     }
 
-    public static function grant(int $points): self
+    public static function grant(int $points, ?string $expiresOn = null): self
     {
-        return new self(TransactionType::Grant, PointKind::Free, $points);
+        return new self(TransactionType::Grant, PointKind::Free, $points, null, $expiresOn);
     }
 
     public static function hold(int $points, int $callId): self

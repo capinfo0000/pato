@@ -13,7 +13,7 @@ final class Call extends Model
 {
     protected $fillable = [
         'guest_user_id', 'area_id', 'venue_id', 'start_at', 'duration_min', 'headcount',
-        'hold_points', 'status', 'is_mix', 'nominated_cast_profile_id',
+        'hold_points', 'cast_payout_points', 'status', 'is_mix', 'nominated_cast_profile_id',
         'priority_surcharge_points', 'is_night', 'venue_kind', 'note',
     ];
 
@@ -22,6 +22,7 @@ final class Call extends Model
         'duration_min' => 'integer',
         'headcount' => 'integer',
         'hold_points' => 'integer',
+        'cast_payout_points' => 'integer',
         'status' => CallStatus::class,
         'is_mix' => 'boolean',
         'is_night' => 'boolean',

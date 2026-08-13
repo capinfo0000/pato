@@ -25,6 +25,8 @@
             <div style="height:8px"></div>
             <button class="btn" type="submit">ログイン</button>
         </form>
+        <div style="height:8px"></div>
+        <a class="btn secondary" href="{{ route('register') }}">新規会員登録</a>
     </div>
 
     <div class="card">

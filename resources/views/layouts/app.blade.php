@@ -71,13 +71,21 @@
     </main>
 
     @auth
-    <nav class="nav">
-        <a href="#">探す</a>
-        <a href="#">メッセージ</a>
-        <a href="{{ route('calls.home') }}" class="{{ request()->routeIs('calls.*') ? 'active' : '' }}">呼ぶ</a>
-        <a href="#">つぶやき</a>
-        <a href="#">マイページ</a>
-    </nav>
+        @if (auth()->user()->isCast())
+            <nav class="nav">
+                <a href="{{ route('cast.index') }}" class="{{ request()->routeIs('cast.*') ? 'active' : '' }}">募集</a>
+                <a href="{{ route('rankings') }}" class="{{ request()->routeIs('rankings') ? 'active' : '' }}">ランキング</a>
+                <a href="{{ route('verify.show') }}" class="{{ request()->routeIs('verify.*') ? 'active' : '' }}">本人確認</a>
+            </nav>
+        @else
+            <nav class="nav">
+                <a href="{{ route('casts.index') }}" class="{{ request()->routeIs('casts.*') ? 'active' : '' }}">探す</a>
+                <a href="{{ route('calls.index') }}" class="{{ request()->routeIs('calls.index') ? 'active' : '' }}">履歴</a>
+                <a href="{{ route('calls.home') }}" class="{{ request()->routeIs('calls.home') ? 'active' : '' }}">呼ぶ</a>
+                <a href="{{ route('rankings') }}" class="{{ request()->routeIs('rankings') ? 'active' : '' }}">ランキング</a>
+                <a href="{{ route('points.index') }}" class="{{ request()->routeIs('points.*') ? 'active' : '' }}">ポイント</a>
+            </nav>
+        @endif
     @endauth
 </body>
 </html>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Application\Call\CallLifecycleService;
 use App\Application\Call\CreateCallService;
 use App\Domain\Point\Contracts\WalletRepository;
 use App\Http\Requests\CreateCallRequest;
@@ -12,6 +13,7 @@ use App\Models\Call;
 use App\Models\CastProfile;
 use App\Models\PointWallet;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
@@ -104,15 +106,98 @@ final class CallController extends Controller
             ->with('status', '呼び出しを作成しました。キャストが応じるまでお待ちください。');
     }
 
-    /** 呼び出し詳細（成立待ち / 成立）。 */
+    /** 呼び出し詳細（成立待ち / 成立 / 合流中 / 完了）。 */
     public function show(Call $call): View
     {
         abort_unless($call->guest_user_id === Auth::id(), 403);
 
         return view('calls.show', [
-            'call' => $call->load('area', 'lineItems.classTier', 'participants'),
+            'call' => $call->load('area', 'lineItems.classTier', 'participants.castProfile.classTier'),
+            'balance' => $this->availablePoints(),
+            'minTip' => CallLifecycleService::MIN_TIP_POINTS,
+        ]);
+    }
+
+    /** 注文履歴。 */
+    public function index(): View
+    {
+        return view('calls.index', [
+            'calls' => Call::where('guest_user_id', Auth::id())
+                ->with('area')->latest()->paginate(20),
             'balance' => $this->availablePoints(),
         ]);
+    }
+
+    /** 合流開始（matched → in_progress）。 */
+    public function start(Call $call, CallLifecycleService $lifecycle): RedirectResponse
+    {
+        abort_unless($call->guest_user_id === Auth::id(), 403);
+
+        return $this->run(fn () => $lifecycle->start($call), $call, '合流を開始しました。');
+    }
+
+    /** 完了（確定消費＋キャスト報酬の計上）。 */
+    public function complete(Call $call, CallLifecycleService $lifecycle): RedirectResponse
+    {
+        abort_unless($call->guest_user_id === Auth::id(), 403);
+
+        return $this->run(
+            fn () => $lifecycle->complete($call),
+            $call,
+            'ご利用ありがとうございました。お支払いが確定しました。',
+        );
+    }
+
+    /** キャンセル（与信を解放）。 */
+    public function cancel(Call $call, CallLifecycleService $lifecycle): RedirectResponse
+    {
+        abort_unless($call->guest_user_id === Auth::id(), 403);
+
+        return $this->run(
+            fn () => $lifecycle->release($call),
+            $call,
+            'キャンセルしました。与信していたポイントは戻ります。',
+        );
+    }
+
+    /** おひねり。 */
+    public function tip(Request $request, Call $call, CallLifecycleService $lifecycle): RedirectResponse
+    {
+        abort_unless($call->guest_user_id === Auth::id(), 403);
+
+        $validated = $request->validate([
+            'points' => ['required', 'integer', 'min:'.CallLifecycleService::MIN_TIP_POINTS],
+        ]);
+
+        return $this->run(
+            fn () => $lifecycle->tip($call, (int) $validated['points']),
+            $call,
+            'おひねりを送りました。',
+        );
+    }
+
+    /** ライフサイクル操作の共通ハンドリング（ドメイン例外を日本語に変換）。 */
+    private function run(callable $action, Call $call, string $success): RedirectResponse
+    {
+        try {
+            $action();
+        } catch (\DomainException $e) {
+            return redirect()->route('calls.show', $call)
+                ->with('error', $this->humanize($e->getMessage()));
+        }
+
+        return redirect()->route('calls.show', $call)->with('status', $success);
+    }
+
+    private function humanize(string $code): string
+    {
+        return match (true) {
+            str_contains($code, 'insufficient_points_for_tip') => 'ポイント残高が不足しています。',
+            str_contains($code, 'tip_below_minimum') => 'おひねりは'.number_format(CallLifecycleService::MIN_TIP_POINTS).'P以上で指定してください。',
+            str_contains($code, 'no_participants') => '参加キャストがいません。',
+            str_contains($code, '不正な状態遷移') => 'この操作は現在の状態では実行できません。',
+            default => '操作を完了できませんでした。',
+        };
     }
 
     private function availablePoints(): int

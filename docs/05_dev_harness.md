@@ -133,17 +133,36 @@ php artisan serve                  # http://127.0.0.1:8000
 ```
 
 実装済みの画面/機能:
-- 認証（最小のメール/パスワード・`app/Http/Controllers/Auth/LoginController`）
-- 呼ぶ導線（`CallController`: home/create/confirm/store/show、`CreateCallRequest`）
-- 作成ユースケース `app/Application/Call/CreateCallService`（ゲート→見積→残高確認→DB TXで
-  Call(open)生成・明細・与信ホールド）。DI は `AppServiceProvider` で契約→Eloquent 実装に束縛。
-- Feature テスト `tests/Feature/CreateCallFlowTest`（作成で与信/残高不足で拒否/未確認で拒否/
-  確認は非永続/未ログインは弾く）
+
+**ゲスト**
+- 会員登録 → 本人確認(eKYC, 18歳未満は拒否) → ホーム（今すぐ呼ぶ/待機キャスト数/今日会えるキャスト）
+- 呼ぶ導線: 条件入力 → 確認（見積＋初回注意喚起） → 作成（与信ホールド） → 成立待ち
+- 呼び出し詳細から 合流開始 / おひねり / 完了（確定消費＋報酬計上） / キャンセル（解放）
+- 探す（絞り込み検索・キャスト詳細＝KPI/バッジ/称号）、注文履歴、ポイント購入＋履歴、ランキング
+
+**キャスト**
+- 募集一覧（自分のクラス/エリアに合致）→ 参加表明（任意。定員到達で成立）
+- 在席ステータス切替（今すぐ可/本日可/オフライン）、受取ポイント確認
+
+**サービス層**
+- `CreateCallService`（ゲート→見積→残高→DB TXで作成＋与信）
+- `CallLifecycleService`（参加/成立/開始/完了＋精算/キャンセル/おひねり/期限切れ）
+- `PurchasePointService`（PSP課金→台帳へ有償P付与、有効期限180日）
+- `RankingService`（ファンポイント付与とランキング集計）
+- ロール制御は `role` ミドルウェア（guest/cast/admin）
+
+**バッチ**
+```bash
+php artisan pato:expire-calls   # 時間切れの呼び出しを不成立にして与信解放（5分毎）
+php artisan pato:rankings       # ランキング集計（日次）
+```
 
 ## 8. まだ無いもの（TODO）
 
-- [ ] 会員登録・eKYC 連携、キャスト側の審査/在席切替、Policy による認可の網羅
-- [ ] 成立(Match)→開始→完了→精算の HTTP 導線（今は作成/与信まで）
+- [ ] メッセージ（グループチャット・コンシェルジュ・NG検知の画面接続）
+- [ ] キャスト審査フローの管理画面、精算の出金申請〜承認〜送金
+- [ ] 指名（優先マッチング）の課金導線、延長、レビュー投稿UI
+- [ ] 実 Adapter（Stripe 等 / eKYC / Web Push）、PWA（manifest / service worker）
 - [ ] Call/Payout の Eloquent Model と Service の DBトランザクション統合
 - [ ] 実 Adapter（Stripe 等 PaymentGateway / eKYC / Web Push）
 - [ ] PWA（manifest / service worker）、ランキング/ゲーミフィケーションの実装

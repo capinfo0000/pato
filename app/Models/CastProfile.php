@@ -6,6 +6,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 final class CastProfile extends Model
 {
@@ -28,6 +30,31 @@ final class CastProfile extends Model
     public function homeArea(): BelongsTo
     {
         return $this->belongsTo(Area::class, 'home_area_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function kpi(): HasOne
+    {
+        return $this->hasOne(CastKpi::class);
+    }
+
+    public function fanPoints(): HasMany
+    {
+        return $this->hasMany(FanPoint::class);
+    }
+
+    public function badgeGrants(): HasMany
+    {
+        return $this->hasMany(BadgeGrant::class);
+    }
+
+    public function awards(): HasMany
+    {
+        return $this->hasMany(Award::class);
     }
 
     /** 今すぐ呼べる（在席かつ対応中でない・承認済み）。 */
