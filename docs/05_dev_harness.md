@@ -157,12 +157,16 @@ php artisan pato:expire-calls   # 時間切れの呼び出しを不成立にし�
 php artisan pato:rankings       # ランキング集計（日次）
 ```
 
+**追加実装（全て Feature テスト済み）**
+- メッセージ: 呼び出しグループチャット / コンシェルジュ(公式) / 一覧フィルタ・検索 / NG検知
+- キャスト審査: 申込 → 写真審査 → 面談 → 承認(クラス付与)・却下、管理キュー、3か月で再申込
+- 精算: 出金申請(下限3,000P・早期振込手数料) → 承認 → 送金完了で payout_debit 計上
+- 指名(優先マッチング +20%) / 延長(30分単位の追加与信) / レビュー(星＋タグ→KPI再計算)
+- PWA: manifest.json / Service Worker(オフラインシェル・GET のみキャッシュ) / オフラインページ
+
 ## 8. まだ無いもの（TODO）
 
-- [ ] メッセージ（グループチャット・コンシェルジュ・NG検知の画面接続）
-- [ ] キャスト審査フローの管理画面、精算の出金申請〜承認〜送金
-- [ ] 指名（優先マッチング）の課金導線、延長、レビュー投稿UI
-- [ ] 実 Adapter（Stripe 等 / eKYC / Web Push）、PWA（manifest / service worker）
-- [ ] Call/Payout の Eloquent Model と Service の DBトランザクション統合
-- [ ] 実 Adapter（Stripe 等 PaymentGateway / eKYC / Web Push）
-- [ ] PWA（manifest / service worker）、ランキング/ゲーミフィケーションの実装
+- [ ] 実 Adapter（Stripe 等 PaymentGateway / eKYC ベンダ / Web Push 送信）
+- [ ] 管理: 通報対応・制裁、マスタ管理、GMVダッシュボード
+- [ ] コパト（1対1）、つぶやき、クーポン/リファラル、SOS通報の画面
+- [ ] 本番向け: キュー(Redis)・監視・監査ログの整備

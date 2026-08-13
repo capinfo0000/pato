@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => Auth::check() ? redirect()->route('calls.home') : redirect()->route('login'));
 
+// PWA のオフラインシェル（Service Worker が事前キャッシュする）
+Route::view('/offline', 'offline')->name('offline');
+
 // 認証・会員登録
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');

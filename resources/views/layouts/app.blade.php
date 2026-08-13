@@ -4,6 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#f0810f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="pato岡山">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.svg">
     <title>@yield('title', 'pato岡山（仮）')</title>
     <style>
         :root { --accent:#f0810f; --ink:#1f2430; --muted:#7b828f; --line:#e9ecf1; --bg:#f6f7f9; }
@@ -88,5 +94,13 @@
             </nav>
         @endif
     @endauth
+    <script>
+        // Service Worker 登録（PWA: インストール可能化とオフラインシェル）
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+    </script>
 </body>
 </html>
