@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
+use App\Http\Controllers\Admin\PriceController as AdminPriceController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\ScreeningController;
 use App\Http\Controllers\Admin\SosController as AdminSosController;
@@ -22,7 +24,17 @@ use App\Http\Controllers\VerificationController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => Auth::check() ? redirect()->route('calls.home') : redirect()->route('login'));
+Route::get('/', function () {
+    if (! Auth::check()) {
+        return redirect()->route('login');
+    }
+
+    return match (Auth::user()->role) {
+        'admin' => redirect()->route('admin.dashboard'),
+        'cast' => redirect()->route('cast.index'),
+        default => redirect()->route('calls.home'),
+    };
+});
 
 // PWA のオフラインシェル（Service Worker が事前キャッシュする）
 Route::view('/offline', 'offline')->name('offline');
@@ -93,8 +105,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/payouts/request', [CastPayoutController::class, 'request'])->name('payouts.request');
     });
 
-    // 管理（審査）
+    // 管理
     Route::middleware('role:admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/prices', [AdminPriceController::class, 'index'])->name('prices.index');
+        Route::post('/prices/{price}', [AdminPriceController::class, 'update'])->name('prices.update');
+        Route::post('/areas/{area}/toggle', [AdminPriceController::class, 'toggleArea'])->name('areas.toggle');
         Route::get('/screenings', [ScreeningController::class, 'index'])->name('screenings.index');
         Route::get('/screenings/{castProfile}', [ScreeningController::class, 'show'])->name('screenings.show');
         Route::post('/screenings/{castProfile}/advance', [ScreeningController::class, 'advance'])->name('screenings.advance');

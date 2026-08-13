@@ -48,6 +48,13 @@ final class DemoSeeder extends Seeder
             ]);
         }
 
+        // 運営（管理画面の確認用）
+        $admin = User::updateOrCreate(
+            ['email' => 'admin@example.com'],
+            ['password' => Hash::make('password'), 'role' => 'admin', 'status' => 'active', 'nickname' => '運営'],
+        );
+        PointWallet::firstOrCreate(['user_id' => $admin->id]);
+
         // 在席キャスト（クラスごと）
         $tiers = ClassTier::pluck('id', 'code');
         $casts = [

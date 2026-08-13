@@ -77,7 +77,15 @@
     </main>
 
     @auth
-        @if (auth()->user()->isCast())
+        @if (auth()->user()->role === 'admin')
+            <nav class="nav">
+                <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">指標</a>
+                <a href="{{ route('admin.screenings.index') }}" class="{{ request()->routeIs('admin.screenings.*') ? 'active' : '' }}">審査</a>
+                <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">通報</a>
+                <a href="{{ route('admin.sos.index') }}" class="{{ request()->routeIs('admin.sos.*') ? 'active' : '' }}">SOS</a>
+                <a href="{{ route('admin.payouts.index') }}" class="{{ request()->routeIs('admin.payouts.*') ? 'active' : '' }}">精算</a>
+            </nav>
+        @elseif (auth()->user()->isCast())
             <nav class="nav">
                 <a href="{{ route('cast.index') }}" class="{{ request()->routeIs('cast.*') ? 'active' : '' }}">募集</a>
                 <a href="{{ route('messages.index') }}" class="{{ request()->routeIs('messages.*') ? 'active' : '' }}">メッセージ</a>
