@@ -44,6 +44,7 @@
     </div>
 
     @if ($myCalls->isNotEmpty())
+        <a class="btn" style="background:#b3261e;margin-bottom:8px" href="{{ route('sos.create') }}">SOS（緊急連絡）</a>
         <div class="card">
             <h2>参加予定・合流中</h2>
             @foreach ($myCalls as $call)

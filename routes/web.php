@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\ScreeningController;
+use App\Http\Controllers\Admin\SosController as AdminSosController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\CallController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PointController;
 use App\Http\Controllers\RankingController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SosController;
 use App\Http\Controllers\VerificationController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +47,10 @@ Route::middleware('auth')->group(function () {
     // 通報（ゲスト・キャスト共通）
     Route::get('/reports/new', [ReportController::class, 'create'])->name('reports.create');
     Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
+
+    // SOS（合流中の緊急連絡。ゲスト・キャスト共通）
+    Route::get('/sos', [SosController::class, 'create'])->name('sos.create');
+    Route::post('/sos', [SosController::class, 'store'])->name('sos.store');
 
     // メッセージ（ゲスト・キャスト共通）
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
@@ -103,5 +109,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/reports/{report}/action', [AdminReportController::class, 'action'])->name('reports.action');
         Route::post('/reports/{report}/dismiss', [AdminReportController::class, 'dismiss'])->name('reports.dismiss');
         Route::post('/reports/{report}/reinstate', [AdminReportController::class, 'reinstate'])->name('reports.reinstate');
+        Route::get('/sos', [AdminSosController::class, 'index'])->name('sos.index');
+        Route::post('/sos/{sosEvent}/ack', [AdminSosController::class, 'acknowledge'])->name('sos.ack');
+        Route::post('/sos/{sosEvent}/resolve', [AdminSosController::class, 'resolve'])->name('sos.resolve');
     });
 });

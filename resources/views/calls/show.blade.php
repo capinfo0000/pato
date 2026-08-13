@@ -57,6 +57,9 @@
     @endif
 
     @if ($call->status->value === 'in_progress')
+        <a class="btn" style="background:#b3261e;margin-bottom:8px"
+           href="{{ route('sos.create', ['call_id' => $call->id]) }}">SOS（緊急連絡）</a>
+
         <form method="POST" action="{{ route('calls.complete', $call) }}">@csrf
             <button class="btn" type="submit">終了して支払いを確定する</button>
         </form>

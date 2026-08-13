@@ -10,7 +10,7 @@
 `areas` / `venues` / `class_tiers` / `area_class_prices` /
 `point_wallets` / `point_products` / `point_transactions` /
 `calls` / `call_line_items` / `call_participants` / `payouts` / `payout_items` /
-`threads` / `thread_participants` / `messages` / `reviews` / `reports` /
+`threads` / `thread_participants` / `messages` / `reviews` / `reports` / `sos_events` /
 `cast_kpis` / `fan_points` / `badges` / `badge_grants` / `awards` / `rankings`
 
 **未実装（本ドキュメントに設計はあるがテーブル未作成。機能実装と同時に作る）**
@@ -424,5 +424,5 @@ erDiagram
 
 - コパト用 `copato_bookings`（1対1・日程調整）／`tsubuyaki`（つぶやき）
 - お気に入り `favorites`（ファミリー）／ブロック `blocks`
-- 通知 `notifications`（配信履歴）／SOS通報 `sos_events`
+- 通知 `notifications`（配信履歴）
 - おひねりの独立テーブル化（現状は participant.tip_points に集約）
