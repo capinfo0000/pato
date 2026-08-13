@@ -186,6 +186,30 @@ curl /healthz                     # DB・キャッシュの疎通（LB・監視�
 - ログは `MaskPii` プロセッサでメール/電話/生年月日/トークンをマスク（daily・single チャンネル）
 - 本番の環境変数は `.env.production.example` を参照
 
+**セキュリティ（詳細は `docs/08_security.md`）**
+
+金銭 > 本人確認情報 > 位置・連絡先 の順に守りを厚くしている。要点:
+
+- **カード番号を保持しない**（Stripe トークンのみ）。PCI DSS のスコープを最小化。
+  カード情報らしきカラムが DB に無いことをテストで恒久的に検証している
+- **残高の競合状態を防ぐ**: `WalletRepository::loadForUpdate()` がウォレット行を
+  `FOR UPDATE` で掴む。トランザクション外で呼ぶと例外（静かに壊れさせない）
+- **二重課金/二重計上を防ぐ**: 冪等キーを Stripe と台帳の UNIQUE 制約の両方で効かせる。
+  決済失敗時は台帳に何も書かない
+- **レート制限**: 購入5回/分（カードテスト対策）、ログイン5回/分（IP＋メール）、
+  SOS は「押せない方が危険」なので緩め
+- **セキュリティヘッダ**: CSP / HSTS(HTTPS時) / X-Frame-Options: DENY / Referrer-Policy
+- **PII**: eKYC 書類は自社に持ち込まない。生年月日は暗号化。ログは `MaskPii` で自動マスク
+- **監査ログ**: 制裁・精算・料金変更・審査を追記のみで記録
+
+```bash
+vendor/bin/phpunit --filter "WebSecurityTest|LedgerConcurrencyTest|LockedReadGuardTest"
+composer audit    # 依存の既知脆弱性（CI に組み込むこと）
+```
+
+> 未対応: 第三者ペネトレーションテスト、Laravel 12 への更新（既知脆弱性）、
+> CSP の `'unsafe-inline'` 除去、管理者の二要素認証。`docs/08_security.md` §7 参照。
+
 **デモアカウント**
 ```
 ゲスト  guest@example.com / password

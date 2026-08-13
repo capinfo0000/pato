@@ -8,6 +8,9 @@ use App\Domain\Point\Contracts\WalletRepository;
 use App\Domain\Point\Support\PointTransaction as PointTransactionValue;
 use App\Domain\Point\Support\Wallet;
 use App\Models\PointTransaction as PointTransactionModel;
+use App\Models\PointWallet;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * point_transactions テーブルとドメインの Wallet を橋渡しする。
@@ -17,22 +20,22 @@ final class EloquentWalletRepository implements WalletRepository
 {
     public function load(int $walletId): Wallet
     {
-        $rows = PointTransactionModel::query()
-            ->where('wallet_id', $walletId)
-            ->orderBy('id')
-            ->get();
+        return $this->hydrate($this->rows($walletId));
+    }
 
-        $txs = [];
-        foreach ($rows as $row) {
-            $txs[] = new PointTransactionValue(
-                type: $row->type,
-                kind: $row->kind,
-                points: $row->points,
-                callId: $row->call_id,
-            );
+    public function loadForUpdate(int $walletId): Wallet
+    {
+        if (DB::transactionLevel() === 0) {
+            // トランザクション外ではロックが即解放され、意味を成さない
+            throw new \LogicException('loadForUpdate は DB トランザクションの内側で呼ぶこと');
         }
 
-        return new Wallet($txs);
+        // ウォレット行を排他ロックし、同一ウォレットへの引き落としを直列化する。
+        // 台帳行ではなくウォレット行を掴むのは、まだ存在しない行（これから insert する
+        // 台帳）に対してもロックを効かせるため（ギャップロックに頼らない）。
+        PointWallet::query()->whereKey($walletId)->lockForUpdate()->first();
+
+        return $this->hydrate($this->rows($walletId));
     }
 
     public function append(int $walletId, PointTransactionValue $tx, string $idempotencyKey): void
@@ -46,5 +49,30 @@ final class EloquentWalletRepository implements WalletRepository
             'expires_on' => $tx->expiresOn,
             'idempotency_key' => $idempotencyKey,
         ]);
+    }
+
+    /** @return Collection<int, PointTransactionModel> */
+    private function rows(int $walletId): Collection
+    {
+        return PointTransactionModel::query()
+            ->where('wallet_id', $walletId)
+            ->orderBy('id')
+            ->get();
+    }
+
+    /** @param Collection<int, PointTransactionModel> $rows */
+    private function hydrate(Collection $rows): Wallet
+    {
+        $txs = [];
+        foreach ($rows as $row) {
+            $txs[] = new PointTransactionValue(
+                type: $row->type,
+                kind: $row->kind,
+                points: $row->points,
+                callId: $row->call_id,
+            );
+        }
+
+        return new Wallet($txs);
     }
 }

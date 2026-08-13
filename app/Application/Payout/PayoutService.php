@@ -55,6 +55,10 @@ final class PayoutService
         }
 
         return DB::transaction(function () use ($cast, $speed) {
+            // ウォレットを先にロックして、同時申請で同じ報酬が二重に出金されるのを防ぐ
+            $wallet = PointWallet::firstOrCreate(['user_id' => $cast->user_id]);
+            $this->wallets->loadForUpdate($wallet->id);
+
             $items = PayoutItem::whereNull('payout_id')
                 ->whereIn('call_participant_id', $this->participantIds($cast))
                 ->lockForUpdate()
@@ -65,8 +69,6 @@ final class PayoutService
             if ($total < self::MIN_REQUEST_POINTS) {
                 throw new \DomainException('below_minimum');
             }
-
-            $wallet = PointWallet::firstOrCreate(['user_id' => $cast->user_id]);
 
             // 早期振込は手数料を差し引く
             $fee = $speed === 'express' ? self::EXPRESS_FEE_POINTS : 0;

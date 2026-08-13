@@ -78,7 +78,8 @@ final class CreateCallService
         ) {
             $wallet = PointWallet::firstOrCreate(['user_id' => $guestUserId]);
 
-            if (! $this->wallets->load($wallet->id)->balance()->canHold($quote->guestHoldPoints)) {
+            // ロックを取ってから残高を見る（同時実行で二重に与信されるのを防ぐ）
+            if (! $this->wallets->loadForUpdate($wallet->id)->balance()->canHold($quote->guestHoldPoints)) {
                 throw new \DomainException('insufficient_points');
             }
 

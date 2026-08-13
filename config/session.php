@@ -169,7 +169,8 @@ return [
     |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    // 本番は必ず https のみでクッキーを送る（環境変数で明示的に切れる）
+    'secure' => env('SESSION_SECURE_COOKIE', env('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------
@@ -199,6 +200,8 @@ return [
     |
     */
 
+    // strict にすると外部リンクからの遷移でログインが切れるため lax。
+    // CSRF は Laravel のトークンで別途防いでいる。
     'same_site' => env('SESSION_SAME_SITE', 'lax'),
 
     /*

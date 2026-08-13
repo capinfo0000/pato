@@ -135,7 +135,8 @@ final class CallLifecycleService
             $quote = $this->quoteForExtension($call, $minutes);
 
             $wallet = PointWallet::firstOrCreate(['user_id' => $call->guest_user_id]);
-            if (! $this->wallets->load($wallet->id)->balance()->canHold($quote->guestHoldPoints)) {
+            // ロックを取ってから残高を見る（同時実行で二重に与信されるのを防ぐ）
+            if (! $this->wallets->loadForUpdate($wallet->id)->balance()->canHold($quote->guestHoldPoints)) {
                 throw new \DomainException('insufficient_points_for_extension');
             }
 
@@ -276,7 +277,8 @@ final class CallLifecycleService
             }
 
             $guestWallet = PointWallet::firstOrCreate(['user_id' => $call->guest_user_id]);
-            if (! $this->wallets->load($guestWallet->id)->balance()->canHold($totalPoints)) {
+            // ロックを取ってから残高を見る（同時実行で残高以上に送れるのを防ぐ）
+            if (! $this->wallets->loadForUpdate($guestWallet->id)->balance()->canHold($totalPoints)) {
                 throw new \DomainException('insufficient_points_for_tip');
             }
 

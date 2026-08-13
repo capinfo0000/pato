@@ -94,6 +94,9 @@ make fresh     # DBリセット + seed
 - **PII（本人確認書類・電話番号等）はログに出さない。** マスキング必須。
 - **ロールは guest / cast / admin。** 認可は Policy で。Controller に `if ($user->role...)` を散らさない。
 - 破壊的操作（本番DB・外部送信）は必ず確認を取る。
+- **カード情報は絶対に保存しない。** 決済は PSP のトークンのみ扱う（`docs/08_security.md`）。
+- **「残高を確認してから引き落とす」処理は必ず `loadForUpdate()` を使う。**
+  `load()` で確認すると同時実行で二重に引き落とせる。
 
 ---
 
@@ -109,3 +112,4 @@ make fresh     # DBリセット + seed
 | `05_dev_harness.md` | 開発ハーネス（テスト/CI/フック）の使い方 |
 | `06_pricing_model.md` | 料金・テイクレート・キャスト報酬モデル（seedの元） |
 | `07_release_gate.md` | リリースゲート（届出手続き・弁護士レビュー・自動チェック） |
+| `08_security.md` | セキュリティ方針（金銭・PII・Web層・監査） |

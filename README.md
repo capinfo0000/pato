@@ -24,6 +24,7 @@
 | [docs/05_dev_harness.md](./docs/05_dev_harness.md) | 開発ハーネス（テスト/CI/フック） |
 | [docs/06_pricing_model.md](./docs/06_pricing_model.md) | 料金・テイクレート・キャスト報酬モデル |
 | [docs/07_release_gate.md](./docs/07_release_gate.md) | リリースゲート（公開前提条件） |
+| [docs/08_security.md](./docs/08_security.md) | セキュリティ方針・対策 |
 
 ## セットアップ（bootstrap 後）
 

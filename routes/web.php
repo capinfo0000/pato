@@ -53,27 +53,30 @@ Route::get('/commerce', [LegalController::class, 'commerce'])->name('legal.comme
 // 認証・会員登録
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:login');
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
-    Route::post('/register', [RegisterController::class, 'register']);
+    Route::post('/register', [RegisterController::class, 'register'])->middleware('throttle:register');
 });
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
 Route::middleware('auth')->group(function () {
     // 本人確認（eKYC）
     Route::get('/verify', [VerificationController::class, 'show'])->name('verify.show');
-    Route::post('/verify', [VerificationController::class, 'submit'])->name('verify.submit');
+    Route::post('/verify', [VerificationController::class, 'submit'])
+        ->middleware('throttle:verify')->name('verify.submit');
 
     // ランキング（ゲスト / キャスト）
     Route::get('/rankings', [RankingController::class, 'index'])->name('rankings');
 
     // 通報（ゲスト・キャスト共通）
     Route::get('/reports/new', [ReportController::class, 'create'])->name('reports.create');
-    Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
+    Route::post('/reports', [ReportController::class, 'store'])
+        ->middleware('throttle:report')->name('reports.store');
 
     // SOS（合流中の緊急連絡。ゲスト・キャスト共通）
     Route::get('/sos', [SosController::class, 'create'])->name('sos.create');
-    Route::post('/sos', [SosController::class, 'store'])->name('sos.store');
+    Route::post('/sos', [SosController::class, 'store'])
+        ->middleware('throttle:sos')->name('sos.store');
 
     // Web Push の購読登録・解除
     Route::post('/push/subscribe', [PushSubscriptionController::class, 'store'])->name('push.subscribe');
@@ -91,13 +94,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/calls', [CallController::class, 'index'])->name('calls.index');
         Route::get('/calls/new', [CallController::class, 'create'])->name('calls.create');
         Route::post('/calls/confirm', [CallController::class, 'confirm'])->name('calls.confirm');
-        Route::post('/calls', [CallController::class, 'store'])->name('calls.store');
+        Route::post('/calls', [CallController::class, 'store'])
+            ->middleware('throttle:money')->name('calls.store');
         Route::get('/calls/{call}', [CallController::class, 'show'])->name('calls.show');
         Route::post('/calls/{call}/start', [CallController::class, 'start'])->name('calls.start');
         Route::post('/calls/{call}/complete', [CallController::class, 'complete'])->name('calls.complete');
         Route::post('/calls/{call}/cancel', [CallController::class, 'cancel'])->name('calls.cancel');
-        Route::post('/calls/{call}/tip', [CallController::class, 'tip'])->name('calls.tip');
-        Route::post('/calls/{call}/extend', [CallController::class, 'extend'])->name('calls.extend');
+        Route::post('/calls/{call}/tip', [CallController::class, 'tip'])
+            ->middleware('throttle:money')->name('calls.tip');
+        Route::post('/calls/{call}/extend', [CallController::class, 'extend'])
+            ->middleware('throttle:money')->name('calls.extend');
         Route::post('/calls/{call}/review', [CallController::class, 'review'])->name('calls.review');
 
         // 探す（絞り込み検索・キャスト詳細・選んで呼ぶ）
@@ -106,7 +112,8 @@ Route::middleware('auth')->group(function () {
 
         // ポイント購入
         Route::get('/points', [PointController::class, 'index'])->name('points.index');
-        Route::post('/points/purchase', [PointController::class, 'purchase'])->name('points.purchase');
+        Route::post('/points/purchase', [PointController::class, 'purchase'])
+            ->middleware('throttle:payment')->name('points.purchase');
     });
 
     // キャスト
@@ -117,7 +124,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/apply', [ScreeningApplicationController::class, 'show'])->name('apply.show');
         Route::post('/apply', [ScreeningApplicationController::class, 'store'])->name('apply.store');
         Route::get('/payouts', [CastPayoutController::class, 'index'])->name('payouts');
-        Route::post('/payouts/request', [CastPayoutController::class, 'request'])->name('payouts.request');
+        Route::post('/payouts/request', [CastPayoutController::class, 'request'])
+            ->middleware('throttle:money')->name('payouts.request');
     });
 
     // 管理
