@@ -118,6 +118,43 @@ final class StripeWebhookTest extends TestCase
         $this->assertSame(999, $this->balance($wallet->id));
     }
 
+    public function test_sequential_partial_refunds_are_each_collected(): void
+    {
+        // 部分返金は何度でも起きる。amount_refunded は累計で届く
+        [$wallet, $purchase] = $this->purchase(points: 3000, yen: 3600, ref: 'pi_split');
+
+        // 1回目: ¥1200 返金（累計 ¥1200）
+        $this->send($this->refundEvent('pi_split', 1200, seq: 1))->assertOk();
+        $this->assertSame(2000, $this->balance($wallet->id));
+
+        // 2回目: さらに ¥1200 返金（累計 ¥2400）。ここを取りこぼさないこと
+        $this->send($this->refundEvent('pi_split', 2400, seq: 2))->assertOk();
+        $this->assertSame(1000, $this->balance($wallet->id));
+
+        // 3回目: 残り全額（累計 ¥3600）
+        $this->send($this->refundEvent('pi_split', 3600, seq: 3))->assertOk();
+        $this->assertSame(0, $this->balance($wallet->id));
+
+        $this->assertSame(3000, $purchase->fresh()->refunded_points);
+    }
+
+    public function test_a_partial_refund_followed_by_a_dispute_collects_only_the_remainder(): void
+    {
+        [$wallet] = $this->purchase(points: 3000, yen: 3600, ref: 'pi_then_dispute');
+
+        $this->send($this->refundEvent('pi_then_dispute', 1800))->assertOk();
+        $this->assertSame(1500, $this->balance($wallet->id));
+
+        // チャージバックは全額回収だが、すでに戻した分を二重に取らない
+        $this->send([
+            'id' => 'evt_dispute_after_refund',
+            'type' => 'charge.dispute.created',
+            'data' => ['object' => ['id' => 'dp_2', 'payment_intent' => 'pi_then_dispute']],
+        ])->assertOk();
+
+        $this->assertSame(0, $this->balance($wallet->id));
+    }
+
     public function test_refund_is_idempotent_across_retries(): void
     {
         [$wallet] = $this->purchase(points: 3000, yen: 3600, ref: 'pi_retry');
@@ -237,10 +274,11 @@ final class StripeWebhookTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function refundEvent(string $paymentIntent, int $amountRefunded): array
+    private function refundEvent(string $paymentIntent, int $amountRefunded, int $seq = 0): array
     {
         return [
-            'id' => 'evt_refund_'.$paymentIntent,
+            // 分割返金では返金ごとに別イベントが届くので、イベントIDも変える
+            'id' => 'evt_refund_'.$paymentIntent.($seq > 0 ? '_'.$seq : ''),
             'type' => 'charge.refunded',
             'data' => ['object' => [
                 'id' => 'ch_'.$paymentIntent,

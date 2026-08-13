@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\Log;
  *
  * 回収の考え方:
  * - 原則、購入したポイント数を戻す（`refund` として台帳に追記）
+ * - **部分返金は何度でも起きる**。PSP が渡してくる返金額は累計なので、累計に対応する
+ *   ポイント数と回収済みの差分だけを追加で回収する（「返金済みなら何もしない」にすると
+ *   2回目以降の分割返金を取りこぼす）
  * - すでに使われていて残高が足りない場合も**回収は行う**。残高がマイナスになるのを
  *   許容し、運営が検知して対応する（黙って取りこぼすより、負債として見える方が良い）
  * - 残高不足は監査ログとエラーログの両方に残す
@@ -44,26 +47,35 @@ final class RefundPointService
 
                 return false;
             }
-            if ($purchase->refunded_at !== null) {
-                return false; // 冪等: Webhook の再送でも二重に回収しない
-            }
-
-            // 部分返金は金額比で按分する（端数は切り上げて多めに回収＝取りこぼさない）
-            $pointsToClaw = $refundedYen === null || $refundedYen >= $purchase->price_yen
+            // Stripe の amount_refunded は「これまでの累計」。累計に対応するポイント数を
+            // 出し、すでに回収済みとの差分だけを追加で回収する。
+            // 「返金済みなら何もしない」にすると、¥1000 → ¥1000 と分割返金されたときに
+            // 2回目を取りこぼす（部分返金は何度でも起きる）。
+            $target = $refundedYen === null || $refundedYen >= $purchase->price_yen
                 ? $purchase->paid_points
+                // 端数は切り上げて多めに回収＝取りこぼさない
                 : (int) ceil($purchase->paid_points * $refundedYen / $purchase->price_yen);
+
+            $pointsToClaw = $target - $purchase->refunded_points;
+
+            if ($pointsToClaw <= 0) {
+                // Webhook の再送、または回収済みの範囲内。何もしない
+                return false;
+            }
 
             $balanceBefore = $this->wallets->loadForUpdate($purchase->wallet_id)->balance()->settled();
 
             $this->wallets->append(
                 $purchase->wallet_id,
                 new PointTx(TransactionType::Refund, PointKind::Paid, $pointsToClaw),
-                "refund-{$chargeRef}",
+                // 累計値を鍵に含める。同じ累計の通知が二度来ても DB が弾く
+                "refund-{$chargeRef}-{$target}",
             );
 
             $purchase->update([
-                'refunded_at' => now(),
-                'refunded_points' => $pointsToClaw,
+                // 最初に返金が起きた時刻を残す（分割返金でも上書きしない）
+                'refunded_at' => $purchase->refunded_at ?? now(),
+                'refunded_points' => $target,
             ]);
 
             $shortfall = max(0, $pointsToClaw - $balanceBefore);
