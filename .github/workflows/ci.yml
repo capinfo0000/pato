@@ -95,6 +95,66 @@ jobs:
           DB_PASSWORD: root
         run: php artisan test
 
+  # 本番イメージが壊れていないことを毎回確認する。
+  # 「デプロイしようとしたらビルドが通らない」を本番作業中に見つけない
+  docker:
+    name: Build production image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          push: false
+          load: true
+          tags: pato-app:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          push: false
+          tags: pato-web:ci
+          cache-from: type=gha
+
+      # 秘密情報がイメージに焼かれていないこと。.dockerignore が外れると混入する
+      - name: Assert no secrets baked into the image
+        run: |
+          set -eu
+          for f in .env .env.production .git; do
+            if docker run --rm --entrypoint sh pato-app:ci -c "test -e '$f'"; then
+              echo "FATAL: イメージに $f が含まれている。.dockerignore を確認すること" >&2
+              exit 1
+            fi
+          done
+          echo "OK: .env / .git はイメージに含まれていない"
+
+      # APP_KEY 未設定なら起動を拒否すること（黙って自動生成させない）
+      - name: Assert the container refuses to start without APP_KEY
+        run: |
+          set -eu
+          if docker run --rm pato-app:ci php-fpm 2>&1 | tee /tmp/out; then
+            echo "FATAL: APP_KEY 無しで起動してしまった" >&2
+            exit 1
+          fi
+          grep -q "APP_KEY が未設定" /tmp/out
+          echo "OK: APP_KEY 無しでは起動しない"
+
+      - name: Assert the app does not run as root
+        run: |
+          set -eu
+          user="$(docker run --rm --entrypoint id pato-app:ci -un)"
+          test "$user" = "www-data"
+          echo "OK: www-data で実行される"
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

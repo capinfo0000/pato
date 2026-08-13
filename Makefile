@@ -2,15 +2,23 @@
 # Laravel モノリス（コアサーバ）用の常用タスク。
 # Laravel 本体の bootstrap は docs/05_dev_harness.md を参照。
 
-.PHONY: setup serve test lint ci fresh help
+.PHONY: setup serve test lint ci fresh help deploy deploy-logs deploy-down release-check
+
+COMPOSE = docker compose --env-file .env.production -f compose.prod.yaml
 
 help:
-	@echo "make setup   - 依存インストール + .env + migrate + seed"
-	@echo "make serve   - 開発サーバ起動 (artisan serve + vite)"
-	@echo "make test    - テスト実行 (pest/phpunit)"
-	@echo "make lint    - Pint(整形チェック) + PHPStan(静的解析)"
-	@echo "make ci      - lint + test (CIと同一)"
-	@echo "make fresh   - DBリセット + seed"
+	@echo "make setup        - 依存インストール + .env + migrate + seed"
+	@echo "make serve        - 開発サーバ起動 (artisan serve + vite)"
+	@echo "make test         - テスト実行 (pest/phpunit)"
+	@echo "make lint         - Pint(整形チェック) + PHPStan(静的解析)"
+	@echo "make ci           - lint + test (CIと同一)"
+	@echo "make fresh        - DBリセット + seed"
+	@echo ""
+	@echo "-- 本番（サーバー上で実行。docs/09_deployment.md）--"
+	@echo "make deploy       - ビルド→マイグレーション→入れ替え→健全性確認"
+	@echo "make deploy-logs  - 稼働中のログを追う"
+	@echo "make deploy-down  - 停止（データは残る）"
+	@echo "make release-check- 公開前提条件の確認"
 
 setup:
 	@test -f composer.json || (echo ">> Laravel 未導入。docs/05_dev_harness.md の bootstrap を先に実行" && exit 1)
@@ -37,3 +45,17 @@ ci: lint test
 
 fresh:
 	php artisan migrate:fresh --seed
+
+# --- 本番 ---
+
+deploy:
+	./docker/deploy.sh --pull
+
+deploy-logs:
+	$(COMPOSE) logs -f --tail=100
+
+deploy-down:
+	$(COMPOSE) down
+
+release-check:
+	$(COMPOSE) exec -T app php artisan pato:release-check

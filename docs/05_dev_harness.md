@@ -253,6 +253,16 @@ stripe trigger charge.refunded
 | 4000 0027 6000 3184 | 3Dセキュアの認証を要求（2段階フローの確認用） |
 | 4000 0000 0000 0002 | カード拒否 |
 
+**デプロイ**
+
+本番は Docker Compose 一式（caddy → nginx → php-fpm → MySQL / Redis + キューワーカー +
+スケジューラ）。手順・運用・切り戻しは `docs/09_deployment.md`。
+
+```bash
+make deploy        # サーバー上で実行（ビルド→マイグレーション→入れ替え→健全性確認）
+make deploy-logs
+```
+
 **デモアカウント**
 ```
 ゲスト  guest@example.com / password

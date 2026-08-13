@@ -113,3 +113,4 @@ make fresh     # DBリセット + seed
 | `06_pricing_model.md` | 料金・テイクレート・キャスト報酬モデル（seedの元） |
 | `07_release_gate.md` | リリースゲート（届出手続き・弁護士レビュー・自動チェック） |
 | `08_security.md` | セキュリティ方針（金銭・PII・Web層・監査） |
+| `09_deployment.md` | デプロイ手順（Docker Compose・Webhook登録・運用） |

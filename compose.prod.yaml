@@ -1,0 +1,115 @@
+# pato岡山（仮） 本番構成
+#
+#   caddy → nginx → app(php-fpm) → mysql / redis
+#                    queue / scheduler も同じイメージ
+#
+# 使い方は docs/09_deployment.md。秘密情報は .env.production に置き、
+# **このファイルには一切書かない**（git に入らない）。
+
+name: pato
+
+x-app: &app
+  image: pato-app:${APP_VERSION:-latest}
+  build:
+    context: .
+    target: app
+  env_file: [.env.production]
+  restart: unless-stopped
+  depends_on:
+    mysql: {condition: service_healthy}
+    redis: {condition: service_started}
+  volumes:
+    # ログだけを永続化する。storage 全体を共有すると、app / queue / scheduler /
+    # migrate が起動時に同じ framework/views へ書き込んで競合する。
+    # セッションとキャッシュは Redis に載せているのでコンテナ内で完結してよい
+    - logs:/var/www/html/storage/logs
+
+services:
+  # TLS 終端。Let's Encrypt の証明書を自動取得・自動更新する。
+  # 既存の nginx / ALB を前段に置く場合はこのサービスを消し、web の 80 を公開する
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN を .env.production に設定してください}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL を設定してください}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data     # 証明書。消すと再取得でレート制限に当たる
+      - caddy-config:/config
+    depends_on: [web]
+
+  # 静的ファイルは nginx が直接返す。public はイメージに焼いてあるので
+  # アプリと同じタグで作り直せば必ず同じ内容になる
+  web:
+    image: pato-web:${APP_VERSION:-latest}
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    depends_on: [app]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  app:
+    <<: *app
+
+  # 呼び出しの与信解放・プッシュ送信・ランキング集計を捌く
+  queue:
+    <<: *app
+    # --max-time でワーカーを定期的に作り直し、メモリリークとコード更新漏れを避ける。
+    # 落ちたら restart: unless-stopped が拾う
+    command: php artisan queue:work --queue=default --tries=3 --backoff=10 --max-time=3600 --sleep=1
+
+  scheduler:
+    <<: *app
+    command: php artisan schedule:work
+
+  # デプロイのたびに一度だけ実行する（複数コンテナの同時マイグレーションを避ける）
+  migrate:
+    <<: *app
+    command: php artisan migrate --force
+    restart: "no"
+    profiles: ["deploy"]
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    # 外部に開けない。アプリからのみ到達できればよい
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-pato}
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME を設定してください}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD を設定してください}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 金額計算の取りこぼしを防ぐため厳格モードで動かす
+      - --sql-mode=STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION
+    volumes:
+      - mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "${DB_USERNAME}", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # セッションとキューが載る。落として消えると困るので永続化する
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD を設定してください}
+    volumes:
+      - redis:/data
+
+volumes:
+  mysql:
+  redis:
+  logs:
+  caddy-data:
+  caddy-config:

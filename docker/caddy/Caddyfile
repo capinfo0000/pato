@@ -1,0 +1,29 @@
+# TLS 終端。証明書は Let's Encrypt から自動取得・自動更新される。
+#
+# Stripe Webhook は HTTPS でしか登録できないため、ここが通らないと
+# 返金通知を受け取れない（＝ポイントを回収できない）。
+
+{
+	email {$LETSENCRYPT_EMAIL}
+	# HTTP/3 とサーバ名の秘匿
+	servers {
+		protocols h1 h2 h3
+	}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# 実クライアントIPをアプリまで届ける。
+	# これが無いとレート制限が全てプロキシのIPで数えられ、機能しなくなる
+	reverse_proxy web:80 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
