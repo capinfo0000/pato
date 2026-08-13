@@ -5,16 +5,19 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\PushSubscription;
+use App\Support\Adapters\Push\WebPushFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Minishlink\WebPush\Subscription;
 
 /**
  * Web Push を1購読へ送る。
+ *
+ * VAPID 署名（ES256 JWT）とペイロード暗号化（aes128gcm）は minishlink/web-push に委ねる。
  *
  * - 404/410 は購読の失効なので、購読を削除して再送しない
  * - 本文に PII を含めない（通知は「何が起きたか」だけ伝え、詳細はアプリで見せる）
@@ -42,42 +45,42 @@ final class SendPushJob implements ShouldQueue
             return; // 購読が消えている
         }
 
-        $vapid = config('services.webpush');
+        $vapid = (array) config('services.webpush');
         if (blank($vapid['public_key'] ?? null) || blank($vapid['private_key'] ?? null)) {
             Log::info('webpush.skipped_no_vapid', ['subscription_id' => $subscription->id]);
 
             return;
         }
 
-        $response = Http::withHeaders($this->headers($subscription))
-            ->withBody($this->payload(), 'application/octet-stream')
-            ->post($subscription->endpoint);
+        $webPush = app(WebPushFactory::class)->make();
 
-        // 失効した購読は掃除する
-        if (in_array($response->status(), [404, 410], true)) {
+        $report = $webPush->sendOneNotification(
+            Subscription::create([
+                'endpoint' => $subscription->endpoint,
+                'publicKey' => $subscription->public_key,
+                'authToken' => $subscription->auth_token,
+            ]),
+            $this->payload(),
+            ['TTL' => 600],
+        );
+
+        if ($report->isSuccess()) {
+            return;
+        }
+
+        // 失効した購読は掃除する（404 Not Found / 410 Gone）
+        if ($report->isSubscriptionExpired()) {
             $subscription->delete();
 
             return;
         }
 
-        if ($response->failed()) {
-            Log::warning('webpush.send_failed', [
-                'status' => $response->status(),
-                'subscription_id' => $subscription->id,
-            ]);
+        Log::warning('webpush.send_failed', [
+            'status' => $report->getResponse()?->getStatusCode(),
+            'subscription_id' => $subscription->id,
+        ]);
 
-            $this->release($this->backoff);
-        }
-    }
-
-    /** @return array<string, string> */
-    private function headers(PushSubscription $subscription): array
-    {
-        return [
-            'TTL' => '600',
-            'Content-Encoding' => 'aes128gcm',
-            // VAPID の署名ヘッダは web-push ライブラリ導入時にここで組み立てる
-        ];
+        $this->release($this->backoff);
     }
 
     private function payload(): string

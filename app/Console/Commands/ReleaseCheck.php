@@ -91,7 +91,20 @@ final class ReleaseCheck extends Command
             'min_age を18以上にしてください',
         );
 
-        // 7. 外部アダプタが Fake のままでないか（本番のみ致命）
+        // 7. Web Push に必要な PHP 拡張（無いと署名計算が極端に遅くなる）
+        if (filled(config('services.webpush.public_key'))) {
+            $hasFastMath = extension_loaded('gmp') || extension_loaded('bcmath');
+            $mathBucket = $hasFastMath ? $failures : $warnings;
+            $this->check(
+                'Web Push の署名計算用拡張（gmp または bcmath）',
+                $hasFastMath,
+                $mathBucket,
+                'php-gmp または php-bcmath をインストールしてください（無いと VAPID 署名が極端に遅くなる）',
+            );
+            $hasFastMath ? $failures = $mathBucket : $warnings = $mathBucket;
+        }
+
+        // 8. 外部アダプタが Fake のままでないか（本番のみ致命）
         $adapters = [
             [PaymentGateway::class, FakePaymentGateway::class, '決済（PSP）'],
             [EkycProvider::class, FakeEkycProvider::class, '本人確認（eKYC）'],

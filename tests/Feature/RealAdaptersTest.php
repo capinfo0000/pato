@@ -14,20 +14,32 @@ use App\Support\Adapters\Ekyc\HttpEkycProvider;
 use App\Support\Adapters\Fake\FakeEkycProvider;
 use App\Support\Adapters\Fake\FakePaymentGateway;
 use App\Support\Adapters\Fake\FakePushSender;
+use App\Support\Adapters\Push\WebPushFactory;
 use App\Support\Adapters\Push\WebPushSender;
 use App\Support\Adapters\Stripe\StripePaymentGateway;
 use App\Support\Contracts\EkycProvider;
 use App\Support\Contracts\PaymentGateway;
 use App\Support\Contracts\PushSender;
 use Database\Seeders\OkayamaMasterSeeder;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Minishlink\WebPush\VAPID;
+use Minishlink\WebPush\WebPush;
 use Tests\TestCase;
 
 final class RealAdaptersTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** Web Push の鍵は URL-safe base64（パディング無し）で扱う。 */
+    private static function base64Url(string $raw): string
+    {
+        return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+    }
 
     // --- DI: 認証情報の有無で Fake / 実アダプタが切り替わる ---
 
@@ -214,22 +226,47 @@ final class RealAdaptersTest extends TestCase
 
     public function test_expired_subscription_is_deleted_on_send(): void
     {
-        config(['services.webpush.public_key' => 'pub', 'services.webpush.private_key' => 'priv']);
-        Http::fake(['push.example.test/*' => Http::response('', 410)]); // Gone = 購読失効
+        // VAPID は実際の鍵形式でないと署名できないため、その場で生成する
+        $keys = VAPID::createVapidKeys();
+        config([
+            'services.webpush.public_key' => $keys['publicKey'],
+            'services.webpush.private_key' => $keys['privateKey'],
+            'services.webpush.subject' => 'mailto:test@example.com',
+        ]);
 
         $user = User::create([
             'email' => 'u3@example.com', 'password' => 'secret-password',
             'role' => 'guest', 'nickname' => 'ゲスト',
         ]);
+        // 購読側の公開鍵も P-256 曲線上の実在する点でないと ECDH に失敗する
+        $browserKeys = VAPID::createVapidKeys();
         $subscription = PushSubscription::create([
             'user_id' => $user->id,
             'endpoint' => 'https://push.example.test/gone',
             'endpoint_hash' => PushSubscription::hashFor('https://push.example.test/gone'),
-            'public_key' => 'pub',
-            'auth_token' => 'auth',
+            'public_key' => $browserKeys['publicKey'],
+            'auth_token' => self::base64Url(random_bytes(16)),
         ]);
 
-        (new SendPushJob($subscription->id, 'タイトル', '本文'))->handle();
+        // 配信先が 410 Gone を返した状況を作る（web-push は Guzzle を直に使うのでハンドラを差す）
+        $this->app->bind(WebPushFactory::class, fn () => new class extends WebPushFactory
+        {
+            public function make(array $clientOptions = []): WebPush
+            {
+                $mock = new MockHandler([new GuzzleResponse(410)]);
+
+                return parent::make(['handler' => HandlerStack::create($mock)]);
+            }
+        });
+
+        // gmp/bcmath が無い環境では web-push が警告を出す（本番では拡張を入れる。
+        // release-check で検出する）。Laravel が例外化するのでこの間だけ黙らせる
+        set_error_handler(static fn () => true);
+        try {
+            (new SendPushJob($subscription->id, 'タイトル', '本文'))->handle();
+        } finally {
+            restore_error_handler();
+        }
 
         $this->assertDatabaseCount('push_subscriptions', 0);
     }
