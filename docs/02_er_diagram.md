@@ -3,6 +3,22 @@
 - 対象: MVP（patoコール先行）
 - 記法: Mermaid `erDiagram`。金額は円ではなく**ポイント（整数）**で保持。
 
+## 実装状況（マイグレーションとの対応）
+
+**実装済み（`database/migrations/` に存在）**
+`users` / `guest_profiles` / `cast_profiles` / `cast_screenings` / `identity_verifications` /
+`areas` / `venues` / `class_tiers` / `area_class_prices` /
+`point_wallets` / `point_products` / `point_transactions` /
+`calls` / `call_line_items` / `call_participants` / `payouts` / `payout_items` /
+`threads` / `thread_participants` / `messages` / `reviews` / `reports` /
+`cast_kpis` / `fan_points` / `badges` / `badge_grants` / `awards` / `rankings`
+
+**未実装（本ドキュメントに設計はあるがテーブル未作成。機能実装と同時に作る）**
+`cast_tags`（詳細タグ検索）/ `coupons`・`coupon_grants`（クーポン）/ `gifts`（まとめてギフト）/
+`passes`（定期購入パス）/ `referrals`（友達招待）
+
+> 使わないテーブルを先に作ると死蔵するため、**機能実装とセットで追加する**方針。
+
 ---
 
 ## 1. ER図（Mermaid）
@@ -25,7 +41,8 @@ erDiagram
     VENUES }o--|| AREAS : in
     USERS ||--o{ CALLS : "creates (guest)"
     CALLS }o--o| VENUES : at
-    CALLS }o--|| CLASS_TIERS : requested_class
+    CALLS ||--o{ CALL_LINE_ITEMS : "requests (class×headcount)"
+    CALL_LINE_ITEMS }o--|| CLASS_TIERS : of
     CALLS ||--o{ CALL_PARTICIPANTS : has
     CAST_PROFILES ||--o{ CALL_PARTICIPANTS : "joins (cast)"
 
@@ -35,6 +52,8 @@ erDiagram
     PAYOUTS ||--o{ PAYOUT_ITEMS : groups
 
     CALLS ||--o| THREADS : has
+    THREADS ||--o{ THREAD_PARTICIPANTS : includes
+    USERS ||--o{ THREAD_PARTICIPANTS : joins
     THREADS ||--o{ MESSAGES : contains
     USERS ||--o{ MESSAGES : sends
 
@@ -106,7 +125,7 @@ erDiagram
       bigint user_id FK
       enum method "ekyc"
       enum status "pending|verified|rejected"
-      date birthdate
+      text birthdate_encrypted "PII: 暗号化"
       boolean is_adult "18歳以上"
       string provider_ref
       timestamp verified_at
@@ -130,7 +149,7 @@ erDiagram
       bigint wallet_id FK
       enum type "purchase|hold|capture|release|expire|tip|payout_debit|grant"
       enum kind "paid|free"
-      int signed_points "符号付き。残高は合算"
+      int points "正の絶対量。符号は type が決める"
       bigint call_id FK "nullable"
       bigint product_id FK "nullable"
       date expires_on "nullable(付与から180日)"
@@ -156,17 +175,27 @@ erDiagram
       bigint guest_user_id FK
       bigint area_id FK
       bigint venue_id FK "nullable"
-      bigint class_tier_id FK
       datetime start_at
-      int duration_min "30単位"
+      int duration_min "30単位(延長で増える)"
       int headcount "募集人数"
-      int hold_points "与信ポイント"
+      int hold_points "与信ポイント(延長で増える)"
+      int cast_payout_points "作成時に確定させる報酬総額"
+      boolean is_night "深夜加算対象"
+      enum venue_kind "restaurant|bar|public (密室禁止)"
       enum status "draft|open|matched|in_progress|completed|canceled|expired"
       boolean is_mix "クラス混在許可"
       bigint nominated_cast_profile_id FK "nullable(優先マッチング/指名)"
       int priority_surcharge_points "指名追加分"
       text note
       timestamp created_at
+    }
+
+    CALL_LINE_ITEMS {
+      bigint id PK
+      bigint call_id FK
+      bigint class_tier_id FK
+      int headcount "このクラスの募集人数"
+      boolean nominated "指名(優先マッチング)か"
     }
 
     CALL_PARTICIPANTS {
@@ -198,10 +227,17 @@ erDiagram
       bigint id PK
       bigint call_id FK "nullable(コンシェルジュ/個別スレッド)"
       enum kind "call|direct|concierge"
-      boolean is_favorite
-      boolean is_hidden
       timestamp last_message_at
       timestamp created_at
+    }
+
+    THREAD_PARTICIPANTS {
+      bigint id PK
+      bigint thread_id FK
+      bigint user_id FK
+      boolean is_favorite "参加者ごとに持つ"
+      boolean is_hidden
+      timestamp last_read_at
     }
 
     MESSAGES {
@@ -210,6 +246,7 @@ erDiagram
       bigint sender_user_id FK
       text body
       boolean flagged "NG検知"
+      json flag_reasons "検知した理由コード"
       timestamp created_at
     }
 
