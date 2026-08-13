@@ -230,6 +230,11 @@ composer audit    # 依存の既知脆弱性（CI に組み込むこと）
 | `STRIPE_SECRET` | 同上 | `sk_...` **漏れると任意の課金・返金ができる**。ビューに渡さない |
 | `STRIPE_WEBHOOK_SECRET` | Webhook エンドポイント作成時 | `whsec_...` **未設定だと Webhook を全拒否**＝返金を取りこぼす |
 
+> `.env` に実キーを入れても**テストは実キーを見ない**。`tests/bootstrap.php` が
+> `$_SERVER` / `$_ENV` / `getenv()` の3つとも空にして Fake アダプタへ落とす
+> （phpunit.xml の `<env force>` だけでは `$_SERVER` が残り、シェルで export された
+> 実キーが通ってしまう）。隔離が外れたら `NoRealCredentialsInTestsTest` が落ちる。
+
 本番の Webhook 登録先は `https://<ドメイン>/webhooks/stripe`。購読するイベントは
 `payment_intent.succeeded` / `charge.refunded` / `charge.dispute.created`。
 

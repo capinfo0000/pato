@@ -27,6 +27,16 @@
 - 公開可能キー（`pk_`）だけをビューへ渡す。秘密鍵（`sk_`）と Webhook シークレット（`whsec_`）が
   ブラウザに出ていないことを `CardPurchaseFlowTest` が検証する。
 
+### テストは実資格情報を見ない
+`.env` に実キーが入ったままテストを流すと、Fake ではなく実アダプタが選ばれ、
+**テストが本物の Stripe に課金しに行く**（レート制限のテストは購入を6回叩く）。
+`tests/bootstrap.php` が `$_SERVER` / `$_ENV` / `getenv()` の3つとも空にして入口で断つ。
+`NoRealCredentialsInTestsTest` が隔離を常時検証している。
+
+> phpunit.xml の `<env force="true">` だけでは不十分。PHPUnit が消すのは `getenv()` と
+> `$_ENV` だけで `$_SERVER` が残り、Laravel の `env()` は `$_SERVER` を先に見るため、
+> シェルで export された実キーがそのまま通る。
+
 ### 3Dセキュアの確定はサーバが決める ★重要
 3Dセキュアは「保留 → ブラウザで認証 → 確定」の2段階になる。確定時に
 **クライアントの申告を一切信用しない**設計にしている。
