@@ -60,6 +60,9 @@ final class CallLifecycleService
             if (! $cast->is_active || $cast->screening_status !== 'approved') {
                 throw new \DomainException('cast_not_approved');
             }
+            if ($cast->user?->status !== 'active') {
+                throw new \DomainException('cast_suspended');
+            }
             if ($cast->in_session) {
                 throw new \DomainException('cast_in_session');
             }

@@ -21,17 +21,18 @@ final class AccessGate
         private readonly bool $identityVerified,
         private readonly bool $isAdult,
         private readonly bool $areaServiceable,
+        private readonly bool $accountActive = true,
     ) {}
 
     public function canCreateCall(): bool
     {
-        return $this->identityVerified && $this->isAdult && $this->areaServiceable;
+        return $this->accountActive && $this->identityVerified && $this->isAdult && $this->areaServiceable;
     }
 
     public function canParticipate(): bool
     {
         // 参加（キャスト側）はエリア判定を呼び出し側に委ねるため、本人確認と年齢のみ。
-        return $this->identityVerified && $this->isAdult;
+        return $this->accountActive && $this->identityVerified && $this->isAdult;
     }
 
     /**
@@ -42,6 +43,9 @@ final class AccessGate
     public function reasons(): array
     {
         $reasons = [];
+        if (! $this->accountActive) {
+            $reasons[] = 'account_suspended';
+        }
         if (! $this->isAdult) {
             $reasons[] = 'under_age';
         }

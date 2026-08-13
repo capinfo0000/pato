@@ -16,6 +16,17 @@
             参加: {{ $thread->participants->map(fn ($p) => $p->user?->nickname)->filter()->join('、') }}
         </p>
 
+        @php
+            $other = $thread->participants->firstWhere('user_id', '!=', auth()->id());
+        @endphp
+        @if ($other && ! $thread->isConcierge())
+            <p class="sub" style="margin:0 0 8px">
+                <a href="{{ route('reports.create', ['target_user_id' => $other->user_id, 'call_id' => $thread->call_id]) }}">
+                    このユーザーを通報する
+                </a>
+            </p>
+        @endif
+
         <div style="display:flex;gap:8px">
             <form method="POST" action="{{ route('messages.toggle', $thread) }}">@csrf
                 <input type="hidden" name="field" value="is_favorite">

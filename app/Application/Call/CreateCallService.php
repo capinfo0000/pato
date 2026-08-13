@@ -17,6 +17,7 @@ use App\Models\Call;
 use App\Models\ClassTier;
 use App\Models\IdentityVerification;
 use App\Models\PointWallet;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -124,11 +125,13 @@ final class CreateCallService
             ->first();
 
         $area = Area::find($areaId);
+        $user = User::find($guestUserId);
 
         $gate = new AccessGate(
             identityVerified: $verification !== null,
             isAdult: (bool) ($verification?->is_adult),
             areaServiceable: (bool) ($area?->serviceable),
+            accountActive: $user?->status === 'active',
         );
 
         if (! $gate->canCreateCall()) {

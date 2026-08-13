@@ -39,6 +39,9 @@
                     <span class="k">
                         {{ $p->castProfile?->classTier?->name }}
                         @if ($p->tip_points > 0) · おひねり{{ number_format($p->tip_points) }}P @endif
+                        @if ($p->castProfile?->user_id)
+                            · <a href="{{ route('reports.create', ['target_user_id' => $p->castProfile->user_id, 'call_id' => $call->id]) }}">通報</a>
+                        @endif
                     </span>
                 </div>
             @endforeach

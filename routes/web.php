@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Admin\PayoutController as AdminPayoutController;
+use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\ScreeningController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\CastDirectoryController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PointController;
 use App\Http\Controllers\RankingController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\VerificationController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,10 @@ Route::middleware('auth')->group(function () {
 
     // ランキング（ゲスト / キャスト）
     Route::get('/rankings', [RankingController::class, 'index'])->name('rankings');
+
+    // 通報（ゲスト・キャスト共通）
+    Route::get('/reports/new', [ReportController::class, 'create'])->name('reports.create');
+    Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
 
     // メッセージ（ゲスト・キャスト共通）
     Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
@@ -92,5 +98,10 @@ Route::middleware('auth')->group(function () {
         Route::post('/payouts/{payout}/approve', [AdminPayoutController::class, 'approve'])->name('payouts.approve');
         Route::post('/payouts/{payout}/paid', [AdminPayoutController::class, 'markPaid'])->name('payouts.paid');
         Route::post('/payouts/{payout}/reject', [AdminPayoutController::class, 'reject'])->name('payouts.reject');
+        Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
+        Route::post('/reports/{report}/review', [AdminReportController::class, 'review'])->name('reports.review');
+        Route::post('/reports/{report}/action', [AdminReportController::class, 'action'])->name('reports.action');
+        Route::post('/reports/{report}/dismiss', [AdminReportController::class, 'dismiss'])->name('reports.dismiss');
+        Route::post('/reports/{report}/reinstate', [AdminReportController::class, 'reinstate'])->name('reports.reinstate');
     });
 });
