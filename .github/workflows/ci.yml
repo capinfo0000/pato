@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ["8.3", "8.4"]
+        php: ["8.4"]
 
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, mysql, pdo_mysql, redis, gmp, bcmath
           tools: composer
           coverage: none
@@ -141,10 +141,14 @@ jobs:
       - name: Assert the container refuses to start without APP_KEY
         run: |
           set -eu
-          if docker run --rm pato-app:ci php-fpm 2>&1 | tee /tmp/out; then
+          # パイプで受けると tee の終了コードになり、常に成功扱いになる。
+          # 終了コードを見たいのでファイルへ落とす
+          if docker run --rm pato-app:ci php-fpm >/tmp/out 2>&1; then
             echo "FATAL: APP_KEY 無しで起動してしまった" >&2
+            cat /tmp/out
             exit 1
           fi
+          cat /tmp/out
           grep -q "APP_KEY が未設定" /tmp/out
           echo "OK: APP_KEY 無しでは起動しない"
 
@@ -164,7 +168,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           tools: composer
           coverage: none
 

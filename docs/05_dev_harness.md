@@ -7,7 +7,7 @@ scaffold する前なので、**bootstrap 手順 → 常用コマンド → CI �
 
 ## 1. 前提ツール
 
-- PHP 8.3+ / Composer
+- PHP 8.4+ / Composer（composer.lock が symfony 8.1 系で解決済み。8.3 では install できない）
 - Node.js 20+（Vite / PWA アセット）
 - MySQL 8（ローカルは sqlite でも可）/ Redis
 

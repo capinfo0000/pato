@@ -11,7 +11,17 @@
 # =====================================================================
 
 # ---------- 依存解決 ----------
-FROM composer:2 AS vendor
+# ランタイムと同じ PHP で解決する。composer 公式イメージの PHP が実行環境と
+# 違うと、そこでは入るのに本番で動かない依存が混ざる（composer.lock は
+# symfony 8.1 系 = PHP 8.4.1 以上を要求している）。
+FROM php:8.4-cli-bookworm AS vendor
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends git unzip; \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY composer.json composer.lock ./
@@ -24,7 +34,7 @@ RUN composer install \
       --optimize-autoloader
 
 # ---------- ランタイム ----------
-FROM php:8.3-fpm-bookworm AS app
+FROM php:8.4-fpm-bookworm AS app
 
 # gmp/bcmath: Web Push の VAPID 署名（無いと極端に遅くなる）
 # pdo_mysql: 本番DB / redis: キュー・セッション・キャッシュ
