@@ -5,7 +5,7 @@ Web セッションからローカルセッションへの引き継ぎメモ。
 
 - リポジトリ: `capinfo0000/pato`
 - 作業ブランチ: `claude/pato-service-inquiry-hmw8zp`
-- 最終状態: テスト **213 passed**（Pint 通過）
+- 最終状態: テスト **214 passed**（sqlite / MySQL(厳格モード) の両方。Pint 通過）
 
 ---
 
@@ -134,8 +134,8 @@ STRIPE_WEBHOOK_SECRET=                 # 未取得。下記 §4
 
 ## 5. 未検証・既知の弱点
 
-- **Docker イメージは実機でビルドしていない**（Web セッションに Docker デーモンが無かった）。
-  CI でビルドは通ったが、`docker compose up` 一式の起動は未確認
+- **`docker compose up` 一式の起動は未検証**（Web セッションに Docker デーモンが無かった）。
+  CI ではイメージのビルドと、秘密情報の非混入・APP_KEY 無しでの起動拒否・非 root 実行まで通っている
 - 無停止デプロイではない（入れ替え時に数秒落ちる）
 - CSP に `'unsafe-inline'` が残っている（nonce 方式へ移行すべき）
 - 管理者アカウントの二要素認証が無い
