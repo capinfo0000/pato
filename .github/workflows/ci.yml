@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# 実キーを握らせない。テスト側でも隔離しているが（tests/bootstrap.php）、
+# そもそも CI に決済の資格情報を渡さない
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint & Test (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.4"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # gmp: Web Push の VAPID 署名。無いと極端に遅くなる（release-check が警告する）
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, redis, gmp, bcmath
+          tools: composer
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Lint (Pint)
+        run: vendor/bin/pint --test
+
+      - name: Test
+        run: php artisan test
+
+  # 本番は MySQL。sqlite では通って MySQL で落ちる差（ロック・enum・厳格モード）を拾う
+  mysql:
+    name: Test on MySQL
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: pato_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, mysql, pdo_mysql, redis, gmp, bcmath
+          tools: composer
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Test
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: pato_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: php artisan test
+
+  # 本番イメージが壊れていないことを毎回確認する。
+  # 「デプロイしようとしたらビルドが通らない」を本番作業中に見つけない
+  docker:
+    name: Build production image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          push: false
+          load: true
+          tags: pato-app:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          push: false
+          tags: pato-web:ci
+          cache-from: type=gha
+
+      # 秘密情報がイメージに焼かれていないこと。.dockerignore が外れると混入する
+      - name: Assert no secrets baked into the image
+        run: |
+          set -eu
+          for f in .env .env.production .git; do
+            if docker run --rm --entrypoint sh pato-app:ci -c "test -e '$f'"; then
+              echo "FATAL: イメージに $f が含まれている。.dockerignore を確認すること" >&2
+              exit 1
+            fi
+          done
+          echo "OK: .env / .git はイメージに含まれていない"
+
+      # APP_KEY 未設定なら起動を拒否すること（黙って自動生成させない）
+      - name: Assert the container refuses to start without APP_KEY
+        run: |
+          set -eu
+          # パイプで受けると tee の終了コードになり、常に成功扱いになる。
+          # 終了コードを見たいのでファイルへ落とす
+          if docker run --rm pato-app:ci php-fpm >/tmp/out 2>&1; then
+            echo "FATAL: APP_KEY 無しで起動してしまった" >&2
+            cat /tmp/out
+            exit 1
+          fi
+          cat /tmp/out
+          grep -q "APP_KEY が未設定" /tmp/out
+          echo "OK: APP_KEY 無しでは起動しない"
+
+      - name: Assert the app does not run as root
+        run: |
+          set -eu
+          user="$(docker run --rm --entrypoint id pato-app:ci -un)"
+          test "$user" = "www-data"
+          echo "OK: www-data で実行される"
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer
+          coverage: none
+
+      # 金銭・PII を扱うため既知脆弱性は放置しない。
+      # 現在 laravel/framework 11.x に未修正の勧告があり（修正は12系のみ）、
+      # 落ちる状態が正しい。対応は docs/08_security.md §6 とタスク #18。
+      - name: composer audit
+        run: composer audit
+        continue-on-error: true

@@ -1,0 +1,277 @@
+# 開発ハーネス — pato岡山（仮）
+
+「ハーネス」= 開発・テスト・CIを回すための足回り。設計フェーズの現状は Laravel 本体を
+scaffold する前なので、**bootstrap 手順 → 常用コマンド → CI → フック**の順で整える。
+
+---
+
+## 1. 前提ツール
+
+- PHP 8.4+ / Composer（composer.lock が symfony 8.1 系で解決済み。8.3 では install できない）
+- Node.js 20+（Vite / PWA アセット）
+- MySQL 8（ローカルは sqlite でも可）/ Redis
+
+---
+
+## 2. 初回 bootstrap（Laravel を入れる）
+
+リポジトリは現在ドキュメントのみ。以下で Laravel を導入する（初回だけ）。
+
+```bash
+# ルートに Laravel を展開（既存 docs/ は保持）
+composer create-project laravel/laravel:^11.0 tmp-laravel
+rsync -a --exclude=.git tmp-laravel/ ./ && rm -rf tmp-laravel
+
+# 開発ツール
+composer require --dev pestphp/pest larastan/larastan laravel/pint
+php artisan key:generate
+```
+
+導入後、`docs/01_architecture_mvc.md` のディレクトリ規約に沿って
+`app/Domain/*`, `app/Support/Contracts` 等を作成する。
+
+---
+
+## 3. 常用コマンド（Makefile）
+
+```bash
+make setup   # composer/npm install + .env 準備 + migrate + seed
+make serve   # php artisan serve + vite
+make test    # pest/phpunit
+make lint    # pint（整形チェック）+ phpstan（静的解析）
+make ci      # lint + test（CIと同一）
+make fresh   # migrate:fresh --seed
+```
+
+`Makefile` は導入済み。中身は Laravel 導入後にそのまま機能する。
+
+---
+
+## 4. テスト方針
+
+- `tests/Feature/` … ユースケース単位。最初に書くべき代表ケース:
+  - `CreateCallTest` … 呼び出し作成でポイントが正しく hold される
+  - `MatchingTest` … 定員成立で matched、集合情報が通知される
+  - `CompleteCallTest` … 完了で hold が capture され、精算 item が計上される
+  - `CancelCallTest` … 成立前キャンセルで hold が release される
+  - `PointExpiryTest` … 180日で expire が計上される
+  - `IdentityGateTest` … 未確認/18歳未満は作成・参加不可
+  - `AreaGateTest` … 岡山エリア外は作成不可
+- `tests/Unit/` … `PointBalance`（台帳合算・利用可能残高）、`ContentFilter`（NG検知）。
+- 外部依存は Fake: `FakePaymentGateway`, `FakeEkycProvider`, `FakePushSender`。
+
+`PointBalance` は最優先でテストを固める（金銭系のバグは致命的）。
+
+---
+
+## 5. CI
+
+`.github/workflows/ci.yml` を用意。push / PR で以下を実行:
+1. PHP セットアップ + Composer install（キャッシュ）
+2. `make lint`（Pint --test + PHPStan）
+3. `make test`（Pest）
+
+Laravel 導入前でもワークフローは壊れないよう、`vendor/` 不在時はスキップする
+ガードを入れてある（導入後に本稼働）。
+
+---
+
+## 6. Claude Code 用フック（任意）
+
+Web セッションで毎回テスト環境を整えたい場合、`.claude/settings.json` に SessionStart
+フックを置ける（`session-start-hook` スキル参照）。例: 依存インストールと `.env` 準備を
+自動化。導入は Laravel scaffold 後に行う。
+
+---
+
+## 7. 実装済みのドメインコア（フレームワーク非依存）
+
+Laravel 本体の前に、金額クリティカルな**純粋ドメイン層**を先行実装済み。composer + PHPUnit で
+すぐ動く（`composer install` → `vendor/bin/phpunit`）。
+
+- `app/Domain/Point/`  … ポイント台帳（`PointBalance` = settled/hold/available 算出、`PointTransaction`）
+- `app/Domain/Pricing/` … エリア別・クラス別料金と報酬/取り分（`PricingCalculator`、岡山既定表）
+- `app/Domain/Call/`   … 状態遷移（`CallStateMachine`、許可遷移のみ通す）
+- `app/Domain/Trust/`  … 入口ゲート（`AccessGate` = 年齢/本人確認/エリア）
+- `app/Domain/Call/Support/TipDistributor` … おひねり配分（指定/均等・端数寄せ）
+- `app/Domain/Messaging/ContentFilter` … NG検知（連絡先交換/外部誘導/密室/現金/性的）
+- `app/Application/Call/CallBillingService` … 作成→与信→完了(精算)/解放/おひねりの整合点
+- `app/Support/Contracts` + `Adapters/Fake` … 決済/eKYC/Push の抽象と Fake 実装
+- テスト: `tests/Unit/`（39 ケース。台帳、料金実額、状態遷移、ゲート、全体フロー、
+  おひねり、NG検知、Fake の冪等性）
+
+### DB マイグレーション / seeder（Laravel 形式で作成済み・要 bootstrap 後に実行）
+- `database/migrations/2026_08_12_0000{01..08}_*` … users / profiles・eKYC / 料金マスタ /
+  ポイント台帳 / call・明細・参加 / payout / messaging / trust
+- `database/seeders/OkayamaMasterSeeder` … 岡山エリア・クラス・エリア別料金・ポイント商品
+
+### Laravel 本体（bootstrap 済み）
+
+Laravel 11 を導入済み。sqlite で即動く。
+
+```bash
+composer install
+cp .env.example .env && php artisan key:generate
+touch database/database.sqlite
+php artisan migrate --seed        # 8マイグレーション + 岡山マスタ
+vendor/bin/phpunit                # Unit 39 + Feature 3 = 42 緑
+```
+
+- Eloquent Model: `app/Models/`（User / PointWallet / PointTransaction / Area /
+  ClassTier / AreaClassPrice）
+- リポジトリ: `app/Infrastructure/Persistence/`（Price 表→Calculator、ウォレット台帳）
+  と契約 `app/Domain/*/Contracts/`
+- Feature テスト: `tests/Feature/`（DBの料金→見積、台帳の永続化と残高再構成、エリア限定）
+
+### 動かす（呼ぶフロー）
+
+```bash
+php artisan migrate:fresh --seed   # 岡山マスタ + デモデータ
+php artisan serve                  # http://127.0.0.1:8000
+# ログイン: guest@example.com / password
+#  → ホーム(今すぐ呼ぶ/今日会えるキャスト) → 条件入力 → 確認(見積+初回注意喚起) → 与信して成立待ち
+```
+
+実装済みの画面/機能:
+
+**ゲスト**
+- 会員登録 → 本人確認(eKYC, 18歳未満は拒否) → ホーム（今すぐ呼ぶ/待機キャスト数/今日会えるキャスト）
+- 呼ぶ導線: 条件入力 → 確認（見積＋初回注意喚起） → 作成（与信ホールド） → 成立待ち
+- 呼び出し詳細から 合流開始 / おひねり / 完了（確定消費＋報酬計上） / キャンセル（解放）
+- 探す（絞り込み検索・キャスト詳細＝KPI/バッジ/称号）、注文履歴、ポイント購入＋履歴、ランキング
+
+**キャスト**
+- 募集一覧（自分のクラス/エリアに合致）→ 参加表明（任意。定員到達で成立）
+- 在席ステータス切替（今すぐ可/本日可/オフライン）、受取ポイント確認
+
+**サービス層**
+- `CreateCallService`（ゲート→見積→残高→DB TXで作成＋与信）
+- `CallLifecycleService`（参加/成立/開始/完了＋精算/キャンセル/おひねり/期限切れ）
+- `PurchasePointService`（PSP課金→台帳へ有償P付与、有効期限180日）
+- `RankingService`（ファンポイント付与とランキング集計）
+- ロール制御は `role` ミドルウェア（guest/cast/admin）
+
+**バッチ**
+```bash
+php artisan pato:expire-calls   # 時間切れの呼び出しを不成立にして与信解放（5分毎）
+php artisan pato:rankings       # ランキング集計（日次）
+```
+
+**追加実装（全て Feature テスト済み）**
+- メッセージ: 呼び出しグループチャット / コンシェルジュ(公式) / 一覧フィルタ・検索 / NG検知
+- キャスト審査: 申込 → 写真審査 → 面談 → 承認(クラス付与)・却下、管理キュー、3か月で再申込
+- 精算: 出金申請(下限3,000P・早期振込手数料) → 承認 → 送金完了で payout_debit 計上
+- 指名(優先マッチング +20%) / 延長(30分単位の追加与信) / レビュー(星＋タグ→KPI再計算)
+- PWA: manifest.json / Service Worker(オフラインシェル・GET のみキャッシュ) / オフラインページ
+- 通報・制裁: 通報フォーム → 管理キュー(対応中/対応済/却下) → アカウント停止・解除。
+  停止中は呼び出し作成・参加ができない。NG検知メッセージも管理画面で確認できる
+- SOS: 合流中の緊急連絡(110番案内を先に提示) → 管理者へ即時通知 → 受信確認/対応完了。
+  位置メモは PII として非シリアライズ
+- 管理: ダッシュボード(GMV・テイクレート実績・供給/需要・要対応件数)、
+  料金マスタ編集(単価/テイクレート/加算率)、エリアの提供可否切替
+
+**実アダプタ（認証情報があれば自動で切り替わる）**
+- 決済: `StripePaymentGateway`（PaymentIntents、冪等キーを Stripe にも渡す。カード番号は扱わない）
+- 本人確認: `HttpEkycProvider`（結果と年齢要件の充足のみ持ち帰る。生年月日は保持しない）
+- 通知: `WebPushSender` ＋ `SendPushJob`（キュー送信、410/404 の購読は自動削除）
+- 未設定なら Fake にフォールバック。本番で Fake のままなら `pato:release-check` が止める
+
+**本番構成**
+```bash
+php artisan queue:work redis      # SendPushJob / ランキング集計 / 期限切れ解放
+php artisan schedule:work         # 5分毎: 与信解放 / 日次: ランキング（いずれもJob経由）
+curl /healthz                     # DB・キャッシュの疎通（LB・監視用）
+```
+- 監査ログ `audit_logs`: 制裁・精算承認/送金・料金変更・審査結果を追記のみで記録
+- ログは `MaskPii` プロセッサでメール/電話/生年月日/トークンをマスク（daily・single チャンネル）
+- 本番の環境変数は `.env.production.example` を参照
+
+**セキュリティ（詳細は `docs/08_security.md`）**
+
+金銭 > 本人確認情報 > 位置・連絡先 の順に守りを厚くしている。要点:
+
+- **カード番号を保持しない**: 入力欄は Stripe Elements（別オリジンの iframe）。カード番号は
+  当アプリの DOM にもサーバにも入らない。PCI DSS のスコープを最小化。
+  カード情報らしきカラムが DB に無いことをテストで恒久的に検証している
+- **3Dセキュアの確定はサーバが決める**: 確定要求に決済IDを含めさせず（セッションが持つ）、
+  PSP へ問い合わせて**状態と金額の両方**を突き合わせてから付与する。
+  台帳の冪等キーは決済参照IDから作るので、同じ決済で二度増えない
+- **残高の競合状態を防ぐ**: `WalletRepository::loadForUpdate()` がウォレット行を
+  `FOR UPDATE` で掴む。トランザクション外で呼ぶと例外（静かに壊れさせない）
+- **二重課金/二重計上を防ぐ**: 冪等キーを Stripe と台帳の UNIQUE 制約の両方で効かせる。
+  決済失敗時は台帳に何も書かない
+- **Webhook は署名検証だけが門番**: `POST /webhooks/stripe` は認証も CSRF も無い。
+  生ボディを HMAC-SHA256 で検証し、`hash_equals` で定数時間比較、±300秒でリプレイ拒否。
+  **`STRIPE_WEBHOOK_SECRET` 未設定なら全拒否**（設定漏れを素通しにしない）。
+  CSRF 除外はこの1本のみで、増減はテストが検出する
+- **返金・チャージバックでポイントを必ず回収**: `point_purchases.charge_ref` で購入を特定し、
+  部分返金は金額比で按分（端数は切り上げ＝取りこぼさない）。使用済みで残高が足りない場合も
+  回収してマイナスを許容し、`refund.balance_shortfall` を残して運営が対応する。
+  処理が失敗したら 5xx を返して Stripe に再送させる（200 で再送を止めない）
+- **レート制限**: 購入5回/分（カードテスト対策）、ログイン5回/分（IP＋メール）、
+  SOS は「押せない方が危険」なので緩め、Webhook は再送で詰まらないよう300回/分
+- **セキュリティヘッダ**: CSP / HSTS(HTTPS時) / X-Frame-Options: DENY / Referrer-Policy
+- **PII**: eKYC 書類は自社に持ち込まない。生年月日は暗号化。ログは `MaskPii` で自動マスク
+- **監査ログ**: 制裁・精算・料金変更・審査を追記のみで記録
+
+```bash
+vendor/bin/phpunit --filter "WebSecurityTest|LedgerConcurrencyTest|LockedReadGuardTest|StripeWebhook|StripeSignature"
+composer audit    # 依存の既知脆弱性（CI に組み込むこと）
+```
+
+> 未対応: 第三者ペネトレーションテスト、Laravel 12 への更新（既知脆弱性）、
+> CSP の `'unsafe-inline'` 除去、管理者の二要素認証。`docs/08_security.md` §7 参照。
+
+**Stripe の設定（`.env`。未設定のうちは Fake アダプタで動く）**
+
+| 変数 | 取得元 | 性質 |
+|---|---|---|
+| `STRIPE_PUBLISHABLE_KEY` | ダッシュボード > 開発者 > APIキー | `pk_...` ブラウザに出る。秘匿情報ではない。**未設定だとデモ用の即時チャージ画面になる** |
+| `STRIPE_SECRET` | 同上 | `sk_...` **漏れると任意の課金・返金ができる**。ビューに渡さない |
+| `STRIPE_WEBHOOK_SECRET` | Webhook エンドポイント作成時 | `whsec_...` **未設定だと Webhook を全拒否**＝返金を取りこぼす |
+
+> `.env` に実キーを入れても**テストは実キーを見ない**。`tests/bootstrap.php` が
+> `$_SERVER` / `$_ENV` / `getenv()` の3つとも空にして Fake アダプタへ落とす
+> （phpunit.xml の `<env force>` だけでは `$_SERVER` が残り、シェルで export された
+> 実キーが通ってしまう）。隔離が外れたら `NoRealCredentialsInTestsTest` が落ちる。
+
+本番の Webhook 登録先は `https://<ドメイン>/webhooks/stripe`。購読するイベントは
+`payment_intent.succeeded` / `charge.refunded` / `charge.dispute.created`。
+
+ローカルで試すときは Stripe CLI で転送する（表示された `whsec_...` を `.env` に入れる）:
+
+```bash
+stripe listen --forward-to localhost:8000/webhooks/stripe
+stripe trigger charge.refunded
+```
+
+テストカード（`sk_test_` 設定時のみ有効）:
+
+| 番号 | 挙動 |
+|---|---|
+| 4242 4242 4242 4242 | 成功（3Dセキュアなし） |
+| 4000 0027 6000 3184 | 3Dセキュアの認証を要求（2段階フローの確認用） |
+| 4000 0000 0000 0002 | カード拒否 |
+
+**デプロイ**
+
+本番は Docker Compose 一式（caddy → nginx → php-fpm → MySQL / Redis + キューワーカー +
+スケジューラ）。手順・運用・切り戻しは `docs/09_deployment.md`。
+
+```bash
+make deploy        # サーバー上で実行（ビルド→マイグレーション→入れ替え→健全性確認）
+make deploy-logs
+```
+
+**デモアカウント**
+```
+ゲスト  guest@example.com / password
+キャスト cast0@example.com / password
+運営    admin@example.com / password
+```
+
+## 8. まだ無いもの（TODO）
+
+- [ ] eKYC ベンダ確定後のレスポンスマッピング調整（`HttpEkycProvider` の `$map`）
+- [ ] コパト（1対1）、つぶやき、クーポン/リファラル、まとめてギフト
+- [ ] **リリースゲート（docs/07）: 弁護士レビューと異性紹介事業の届出**（人の手続き）

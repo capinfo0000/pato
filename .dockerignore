@@ -1,0 +1,29 @@
+# イメージに入れないもの。
+# 特に .env と .git は、入ると秘密情報がそのままイメージに焼かれる。
+.env
+.env.*
+.git
+.github
+.gitignore
+.phpunit.cache
+.styleci.yml
+.editorconfig
+
+vendor
+node_modules
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+database/*.sqlite
+public/hot
+
+docs
+tests
+Makefile
+README.md
+CHANGELOG.md
+CLAUDE.md
+compose*.yaml
+Dockerfile
+.dockerignore
